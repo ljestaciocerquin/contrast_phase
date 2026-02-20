@@ -6,7 +6,7 @@
 #SBATCH --ntasks=1
 #SBATCH --cpus-per-task=8
 #SBATCH --mem=80G
-#SBATCH --time=24:00:00
+#SBATCH --time=3-00:00:00
 #SBATCH --array=0-3
 #SBATCH --output=/projects/net_contrast_classification/jobs/radiomics_job/radiomics_%A_%a.out
 #SBATCH --error=/projects/net_contrast_classification/jobs/radiomics_job/radiomics_%A_%a.err
