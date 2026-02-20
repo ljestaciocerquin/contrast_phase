@@ -357,3 +357,7 @@ def append_df_to_csv(df, output_csv_path, wrote_header, processed_images, total_
     wrote_header = True
     total_rows += len(df)
     return wrote_header, processed_images, total_rows
+
+def process_single_image(args):
+    file_path, phase, folder_path = args
+    return feature_extract(file_path, phase, folder_path)
