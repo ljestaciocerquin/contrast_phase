@@ -6,22 +6,22 @@ from radiomics_pipeline import process_single_image,append_df_to_csv
 
 
 def main():
-    data = pd.read_csv(
-        "/projects/net_contrast_classification/contrast_phase/cleaned_data.csv"
-    )
+    data = pd.read_csv("/projects/net_contrast_classification/contrast_phase/data/cleaned_data_1.csv")
+    data= data[data.exist_on_server.isna()]   # the second batch of files that were added on the server (3287 scans)
+    
 
-    folder_path = "/mnt/rhea/data_private/IRBd23-231/GEPNETs/ARTINET"
-    output_path = "/projects/net_contrast_classification/contrast_phase/features"
+    folder_path = "/mnt/rhea/data_private/IRBd23-231/GEPNETs/ARTINET/not_on_server"
+    output_path = "/projects/net_contrast_classification/contrast_phase/Radiomics/features/vol2"
     os.makedirs(output_path, exist_ok=True)
 
-    files = data["NiiFile"].tolist()
+    files = data["MatchKey"].tolist()
     phases = data["contrast"].tolist()
 
     num_batches = 4
     idx_splits = np.array_split(np.arange(len(files)), num_batches)
 
     if len(sys.argv) != 2:
-        print("Usage: python run_radiomics.py <batch_index>")
+        print("Usage: python run_radiomics_vol2.py <batch_index>")
         sys.exit(1)
 
     batch_id = int(sys.argv[1])

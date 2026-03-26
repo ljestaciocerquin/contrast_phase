@@ -6,15 +6,18 @@ from tqdm import tqdm
 import sys
 
 
-data = pd.read_csv("/projects/net_contrast_classification/contrast_phase/dataset-registration-artinet.csv")
+data = pd.read_csv("/projects/net_contrast_classification/contrast_phase/data/cleaned_data_1.csv")
+data= data[data.exist_on_server.isna()]   # the second batch of files that were added on the server (3287 scans)
 
 # FOLDER PATHS
-folder_path = "/mnt/rhea/data_private/IRBd23-231/GEPNETs/ARTINET"
-output_path = "/projects/net_contrast_classification/contrast_phase/total_seg_output"
+folder_path = "/mnt/rhea/data_private/IRBd23-231/GEPNETs/ARTINET/not_on_server"
+output_path = "/projects/net_contrast_classification/contrast_phase/TS/total_seg_output/vol2"
 os.makedirs(output_path, exist_ok=True)
+json_output_path = os.path.join(output_path, "jsons")
+os.makedirs(json_output_path, exist_ok=True)
 
 # ALL FILES
-files = [os.path.join(folder_path, PureWindowsPath(f).name) for f in data["NiiFile"]]
+files = [os.path.join(folder_path, PureWindowsPath(f).name) for f in data["MatchKey"]]
 
 num_batches = 4
 splits = np.array_split(files, num_batches)
@@ -23,7 +26,7 @@ splits = np.array_split(files, num_batches)
 
 # ----------- JOB INDEX FROM COMMAND LINE -----------
 if len(sys.argv) != 2:
-    print("Usage: python process_totalseg.py <batch_index>")
+    print("Usage: python process_totalseg_vol2.py <batch_index>")
     sys.exit(1)
 
 batch_index = int(sys.argv[1])    # treats the 2nd arg as the batch index
@@ -41,7 +44,7 @@ print(f"Job {batch_index} will process {len(files_batch)} files.")
 # ----------- RUN TotalSegmentator -----------
 def run_baseline(file):
     basename = os.path.basename(file).replace(".nii.gz", "_phase.json")
-    output_file = os.path.join(output_path, basename)
+    output_file = os.path.join(json_output_path, basename)
 
     try:
         subprocess.run(["totalseg_get_phase", "-i", file, "-o", output_file], check=True)

@@ -1,0 +1,18 @@
+#!/bin/bash
+#SBATCH --job-name=totalseg_organs
+#SBATCH --partition=rtx2080ti
+#SBATCH --nodes=1
+#SBATCH --ntasks=1
+#SBATCH --cpus-per-task=4
+#SBATCH --gpus=1
+#SBATCH --mem=40G
+#SBATCH --time=3-00:00:00
+#SBATCH --qos=rtx_qos
+#SBATCH --array=0-3
+#SBATCH --output=/projects/net_contrast_classification/jobs/organs_job/organs_%A_%a.out
+#SBATCH --error=/projects/net_contrast_classification/jobs/organs_job/organsg_%A_%a.err
+
+source /home/k.minkova/miniconda3/etc/profile.d/conda.sh
+conda activate class
+
+python /projects/net_contrast_classification/contrast_phase/TS/totalseg_organs.py $SLURM_ARRAY_TASK_ID

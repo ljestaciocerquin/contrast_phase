@@ -10,10 +10,10 @@
 #SBATCH --time=24:00:00
 #SBATCH --qos=rtx_qos
 #SBATCH --array=0-3
-#SBATCH --output=totalseg_%A_%a.out
-#SBATCH --error=totalseg_%A_%a.err
+#SBATCH --output=/projects/net_contrast_classification/jobs/total_seg_job/vol1/totalseg_%A_%a.out
+#SBATCH --error=/projects/net_contrast_classification/jobs/total_seg_job/vol1/totalseg_%A_%a.err
 
 source /home/k.minkova/miniconda3/etc/profile.d/conda.sh
 conda activate class
 
-python /projects/net_contrast_classification/contrast_phase/process_totalseg.py $SLURM_ARRAY_TASK_ID
+python /projects/net_contrast_classification/contrast_phase/TS/process_totalseg.py $SLURM_ARRAY_TASK_ID

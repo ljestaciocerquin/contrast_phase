@@ -1,4 +1,5 @@
-dataset-registration-artinet.csv
-NKI-d23231-00-0330_20120820_kalina99_1663.nii.gz
-contrast_phase.json
-total_seg_output
+
+data
+matching.ipynb
+general.ipynb
+TS/total_seg_output

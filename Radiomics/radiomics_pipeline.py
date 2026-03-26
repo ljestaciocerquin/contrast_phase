@@ -73,12 +73,12 @@ def list_organs(selected=None, by='name'):
 
 def multi_channel(organ_ids, seg_ct):
     """
-    Convert a single-label mask to a multi-channel mask [num_organs, H, W, D]
+    Convert a multi-label mask to a multi-channel mask [num_organs, H, W, D]
 
     organ_ids: list of int
                The integer labels corresponding to each organ
     seg_ct: np.ndarray 
-        The single-label mask 
+        The multi-label mask 
 
     returns channels: np.ndarray of shape [num_organs, H, W, D]
     """
@@ -87,15 +87,16 @@ def multi_channel(organ_ids, seg_ct):
     channels = np.zeros((len(organ_ids), *seg_ct.shape), dtype=np.uint8)
     for i, oid in enumerate(organ_ids):
         channels[i] = (seg_ct == oid).astype(np.uint8)
+        
     return channels
     
-def data_load(files, folder_path, channel_first = True, organ_seg = True, organs = None, by = 'name'):
+def data_load(files, folder_paths, channel_first = True, organ_seg = True, organs = None, by = 'name'):
     """
-    Load the CT image files and organ segmentation files (optioonally)
+    Load the CT image files and organ segmentation files (optionally)
 
     files: list of str
             List of all the file paths from which we want to load the images
-    folder_path: str
+    folder_path: list of str
             The folder path where all the CT images/organ segmentations are located
     channel_first: Boolean
             Ensure each loaded image has the channel first, i.e., is of shape [1, H, W, num_slices]
@@ -108,14 +109,17 @@ def data_load(files, folder_path, channel_first = True, organ_seg = True, organs
 
     returns images: np.ndarray, segments: np.ndarray
     """
-        
+
     images = [] 
     segments = []  
     loader = LoadImage(image_only=True, ensure_channel_first=channel_first)
     
+    # Ensure lists and flatten any single-element lists inside
     file_list = files if isinstance(files, list) else [files]
+    folder_list = folder_paths if isinstance(folder_paths, list) else [folder_paths]
 
-    for file in file_list:
+
+    for file, folder_path in zip(file_list, folder_list):
         file_dir = os.path.join(folder_path, PureWindowsPath(file).name)
         images.append(loader(file_dir).numpy())
 
@@ -123,7 +127,7 @@ def data_load(files, folder_path, channel_first = True, organ_seg = True, organs
         organ_ids, _ = (list_organs() if organs is None else list_organs(organs, "name" if by == 'name' else 'id'))
 
         organ_segments = [str(Path(file).with_name(Path(file).name.replace(".nii.gz", ".organs.nii.gz"))) for file in file_list]
-        for seg in organ_segments:
+        for seg, folder_path in zip(organ_segments, folder_list):
             seg_dir = os.path.join(folder_path, PureWindowsPath(seg).name)
             seg_ct = loader(seg_dir)
             seg_ct = seg_ct.numpy()
