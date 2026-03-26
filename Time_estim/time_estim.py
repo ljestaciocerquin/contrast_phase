@@ -16,11 +16,11 @@ from sklearn.metrics import accuracy_score, classification_report, confusion_mat
 import torch.nn.functional as F
 from monai.data import MetaTensor
 from sklearn.utils.class_weight import compute_class_weight
-# from focal_loss import SparseCategoricalFocalLoss
+from torch.utils.data import WeightedRandomSampler
 
 import sys
 sys.path.append("/projects/net_contrast_classification/contrast_phase")
-print(sys.path)
+
 from Radiomics.radiomics_pipeline import list_organs, multi_channel
 
 seed = 42
@@ -28,6 +28,33 @@ torch.manual_seed(seed)
 np.random.seed(seed)
 random.seed(seed)
 
+def data_load(dataset, sample = None):
+    dataset['server_folder'] = dataset.exist_on_server.apply(lambda x: "/mnt/rhea/data_private/IRBd23-231/GEPNETs/ARTINET" 
+                                                             if pd.notna(x)  
+                                                             else "/mnt/rhea/data_private/IRBd23-231/GEPNETs/ARTINET/not_on_server")
+    
+    dataset = dataset[(dataset.contrast.isin(['Arterial', "Portal"]))
+                & (dataset.is_liver_imaged == "Yes")
+                & (dataset.phase_timing != '0.0')]
+
+    dataset['contrast_timing'] = (dataset["contrast"].str.cat(dataset["phase_timing"], sep=" "))
+    dataset["contrast_timing"] = dataset["contrast_timing"].astype(str).str.strip()
+
+    if not sample:
+        files = [os.path.join(row['server_folder'], PureWindowsPath(row['MatchKey']).name) for i, row in dataset.iterrows()]
+        organ_files = [f.replace(".nii.gz", ".organs.nii.gz") for f in files]
+        labels = dataset.contrast_timing
+    else:
+        sampled_df = dataset.groupby('contrast_timing', group_keys=False).apply(lambda x: x.sample(n=min(len(x), sample), random_state=42))
+        sampled_df['contrast_timing'] = sampled_df["contrast"].str.cat(sampled_df["phase_timing"], sep=" ")
+        sampled_df["contrast_timing"] = sampled_df["contrast_timing"].astype(str).str.strip()
+
+        files = [os.path.join(row['server_folder'], PureWindowsPath(row['MatchKey']).name) for i, row in sampled_df.iterrows()]
+        organ_files = [f.replace(".nii.gz", ".organs.nii.gz") for f in files]
+        labels = sampled_df.contrast_timing
+
+
+    return files, organ_files, labels
 
 class FocalLoss(nn.Module):
     def __init__(self, alpha=None, gamma=2.0, reduction="mean"):
@@ -108,7 +135,7 @@ def pad_to_shape(x, target_shape):
 
     return F.pad(x, pad, value=-1024)  # use -1024 pading value because air ~ -1024 HU
 
-def get_2p5d_slices(volume, organ_array, num_slices=5):
+def get_2p5d_slices(volume, organ_array, num_slices=7):
     """
     Extract a 2.5D stack of slices around the organ center.
     
@@ -199,7 +226,7 @@ def create_dataset(image_files, organ_files, organ_ids, mode="3d", num_slices=5)
 
     return dataset, valid_indices
 
-def train_cnn(model, train_loader, weights=None, val_loader=None, epochs=10, lr=1e-4, weight_decay = 1e-5):
+def train_cnn(model, train_loader, weights=None, val_loader=None, epochs=10, lr=1e-4, weight_decay = 1e-4):
     device = "cuda" if torch.cuda.is_available() else "cpu"
     model = model.to(device)
 
@@ -430,37 +457,30 @@ class CTDataset(Dataset):
 
 
 def main():
+
+    print("CUDA available:", torch.cuda.is_available())
+
+    if torch.cuda.is_available():
+        print("GPU:", torch.cuda.get_device_name(0))
+
     # ------------------------------------------------- Load data -------------------------------------------------
     # -------------------------------------------------------------------------------------------------------------
 
     data = pd.read_csv("/projects/net_contrast_classification/contrast_phase/data/cleaned_data_1.csv")
-    folder_path = "/mnt/rhea/data_private/IRBd23-231/GEPNETs/ARTINET"
 
-    data = data[(data.contrast.isin(['Arterial', "Portal"])) 
-                & (data.exist_on_server.notna())
-                & (data.is_liver_imaged == "Yes")
-                & (data.phase_timing != '0.0')]
+    files, organ_files, labels_raw = data_load(data)
+    
+    le = LabelEncoder()
+    labels = le.fit_transform(labels_raw)
 
-    data['contrast_timing'] = (data["contrast"].str.cat(data["phase_timing"], sep=" "))
-    data["contrast_timing"] = data["contrast_timing"].astype(str).str.strip()
+    mode = "2p5d"
+    num_slices = 5
 
-    sampled_df = data.groupby('contrast_timing', group_keys=False).apply(lambda x: x.sample(n=min(len(x), 600), random_state=42))
-    sampled_df['contrast_timing'] = sampled_df["contrast"].str.cat(sampled_df["phase_timing"], sep=" ")
-    sampled_df["contrast_timing"] = sampled_df["contrast_timing"].astype(str).str.strip()
-
-    files = [os.path.join(folder_path, PureWindowsPath(f).name) for f in sampled_df["MatchKey"]]
-    organ_files = [os.path.join(folder_path, PureWindowsPath(os.path.basename(f).replace(".nii.gz", ".organs.nii.gz")).name) for f in files]
 
     organ_ids,_ = list_organs(selected = [1,2,3,5,8
                                           ,9,13,51,52
                                           ,63,64,65,66
                                           ], by = "id")
-
-    le = LabelEncoder()
-    mode = "2p5d"
-    num_slices = 5
-
-    labels = le.fit_transform(sampled_df.contrast_timing)
 
     temp_idx, test_idx = train_test_split(
         np.arange(len(files)),
@@ -468,7 +488,6 @@ def main():
         random_state=42,      # for reproducibility
         stratify=labels       # maintain class balance
     )
-
 
     train_idx, val_idx = train_test_split(
         temp_idx,
@@ -487,16 +506,15 @@ def main():
 
 
 
-
     # --------------------------------------------------- Train ---------------------------------------------------
     # -------------------------------------------------------------------------------------------------------------
+
 
     if mode == "3d":
         transforms, batches = transforms_3d, 1
         
     else:
         transforms, batches = transforms_2d, 8
-
 
     # Train dataset and dataloader
     train_dataset = CTDataset(
@@ -509,13 +527,21 @@ def main():
         transform=transforms
     )
 
+
+    class_counts = np.bincount(train_labels)
+    weights = 1. / class_counts
+    sample_weights = weights[train_labels]
+    sampler = WeightedRandomSampler(sample_weights, len(sample_weights))
+
     train_loader = DataLoader(
         train_dataset,
         batch_size=batches,
-        shuffle=True,
+        shuffle=False,
         num_workers=4,
-        pin_memory=False
+        pin_memory=False,
+        sampler=sampler
     )
+
 
     # Validation dataset and dataloader
     val_dataset = CTDataset(
@@ -531,7 +557,7 @@ def main():
     val_loader = DataLoader(
         val_dataset,
         batch_size=batches,
-        shuffle=True,
+        shuffle=False,
         num_workers=4,
         pin_memory=False
     )
@@ -550,6 +576,13 @@ def main():
         model = resnet10(spatial_dims=3, n_input_channels=1, num_classes=6)
     else:
         model = resnet10(spatial_dims=2, n_input_channels=num_slices, num_classes=6) # 2.5D pretrained CNN 
+        in_features = model.fc.in_features
+
+        # Add dropout for regularization
+        model.fc = nn.Sequential(
+            nn.Dropout(p=0.3),
+            nn.Linear(in_features, 6)
+)
 
 
     # # Simple 3D CNN trained from scratch
@@ -557,10 +590,10 @@ def main():
 
     train_labels = labels[train_idx]
 
-    weights = compute_class_weight(class_weight="balanced", classes=np.unique(train_labels),y=train_labels)
-    weights = torch.tensor(weights, dtype=torch.float32)
+    # weights = compute_class_weight(class_weight="balanced", classes=np.unique(train_labels),y=train_labels)
+    # weights = torch.tensor(weights, dtype=torch.float32)
 
-    trained_model = train_cnn(model, train_loader, weights = weights, val_loader=val_loader)
+    trained_model = train_cnn(model, train_loader, weights = None, val_loader=val_loader)
 
 
 
@@ -574,13 +607,14 @@ def main():
         organ_ids,
         mode=mode,
         num_slices=num_slices,
-        transform=transforms
+        transform=transforms,
+        sampler=sampler
     )
 
     test_loader = DataLoader(
         test_dataset,
         batch_size=batches,
-        shuffle=True,
+        shuffle=False,
         num_workers=0,
         pin_memory=False
         )

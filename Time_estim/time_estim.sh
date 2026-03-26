@@ -4,8 +4,8 @@
 #SBATCH --nodes=1
 #SBATCH --ntasks=1
 #SBATCH --cpus-per-task=4
-#SBATCH --gpus=2
-#SBATCH --mem=40G
+#SBATCH --gres=gpu:2
+#SBATCH --mem=20G
 #SBATCH --time=24:00:00
 #SBATCH --qos=rtx_qos
 #SBATCH --output=/projects/net_contrast_classification/jobs/time_estim/time_estim_%A.out
