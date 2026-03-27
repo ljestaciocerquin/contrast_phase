@@ -135,7 +135,7 @@ def pad_to_shape(x, target_shape):
 
     return F.pad(x, pad, value=-1024)  # use -1024 pading value because air ~ -1024 HU
 
-def get_2p5d_slices(volume, organ_array, num_slices=7):
+def get_2p5d_slices(volume, organ_array = None, num_slices=7):
     """
     Extract a 2.5D stack of slices around the organ center.
     
@@ -149,26 +149,27 @@ def get_2p5d_slices(volume, organ_array, num_slices=7):
     """
     _, H, W, D = volume.shape
 
-    # Ensure organ_array is a torch tensor on the same device
-    if not isinstance(organ_array, torch.Tensor):
-        organ_tensor = torch.tensor(organ_array, device=volume.device)
-    else:
-        organ_tensor = organ_array.to(volume.device)
+    if organ_array is not None:
+        organ_tensor = torch.as_tensor(organ_array, device=volume.device)
 
-    # Binary mask: any organ > 0
-    if organ_tensor.ndim > 3:
-        organ_mask = (organ_tensor > 0).any(dim=0)  # (H, W, D)
-    else:
-        organ_mask = organ_tensor > 0  # already (H, W, D)
+        if organ_tensor.ndim > 3:
+            organ_mask = (organ_tensor > 0).any(dim=0)  # (H, W, D)
+        else:
+            organ_mask = organ_tensor > 0
 
-    # Compute center slice along depth (D)
-    # Sum over H and W to get how many organ pixels are in each slice
-    center = organ_mask.sum(dim=(0, 1)).argmax().item()
+        # pick the slice with the most organ presence
+        center = organ_mask.sum(dim=(0, 1)).argmax().item()
+
+    else:
+        center = volume.sum(dim=(1, 2)).argmax().item()
 
     half = num_slices // 2
-    indices = [min(max(center + i, 0), D - 1) for i in range(-half, half + 1)]
 
-    # Extract slices and permute to (num_slices, H, W)
+    if num_slices % 2 == 0:
+        indices = [min(max(center + i, 0), D - 1) for i in range(-half, half)]
+    else:
+        indices = [min(max(center + i, 0), D - 1) for i in range(-half, half + 1)]
+
     slices = volume[0, :, :, indices].permute(2, 0, 1)
 
     return slices
@@ -412,23 +413,31 @@ class CTDataset(Dataset):
     def __len__(self):
         return len(self.image_files)
 
-    def __getitem__(self, idx, retries = 3):
+    def __getitem__(self, idx, retries = 1):
         try:
             # ---------------- Load ----------------
             image_array = self.loader(self.image_files[idx])
-            organ_array_single = self.loader(self.organ_files[idx])
+            try:
+                organ_array_single = self.loader(self.organ_files[idx])
 
-            # ---------------- Multi-channel mask ----------------
-            organ_array = multi_channel(self.organ_ids, organ_array_single)
+                # ---------------- Multi-channel mask ----------------
+                organ_array = multi_channel(self.organ_ids, organ_array_single)
 
-            # ---------------- Crop ----------------
-            ct_cropped = keep_organ_volume(image_array, organ_array)
+                # ---------------- Crop ----------------
+                ct_cropped = keep_organ_volume(image_array, organ_array)
+                volume = ct_cropped
+                
+            
+            except Exception as e:
+                print(f"Skipping {self.organ_files[idx]}: {e}")
+                volume = image_array
+                organ_array = None
 
-            # ---------------- Mode handling ----------------
+            # ----------------- Mode handling -----------------
             if self.mode == "3d":
-                x = ct_cropped  # (1, H, W, D)
+                x = volume  # (1, H, W, D)
             elif self.mode == "2p5d":
-                x = get_2p5d_slices(ct_cropped, organ_array, num_slices=self.num_slices)  # (k, H, W)
+                x = get_2p5d_slices(volume = volume, organ_array = organ_array, num_slices=self.num_slices)  # (k, H, W)
             else:
                 raise ValueError(f"Unknown mode: {self.mode}")
 
@@ -514,7 +523,7 @@ def main():
         transforms, batches = transforms_3d, 1
         
     else:
-        transforms, batches = transforms_2d, 8
+        transforms, batches = transforms_2d, 16
 
     # Train dataset and dataloader
     train_dataset = CTDataset(
@@ -528,9 +537,9 @@ def main():
     )
 
 
-    class_counts = np.bincount(train_labels)
+    class_counts = np.bincount(labels[train_idx])
     weights = 1. / class_counts
-    sample_weights = weights[train_labels]
+    sample_weights = weights[labels[train_idx]]
     sampler = WeightedRandomSampler(sample_weights, len(sample_weights))
 
     train_loader = DataLoader(
@@ -587,8 +596,6 @@ def main():
 
     # # Simple 3D CNN trained from scratch
     # model = Small3DCNN()
-
-    train_labels = labels[train_idx]
 
     # weights = compute_class_weight(class_weight="balanced", classes=np.unique(train_labels),y=train_labels)
     # weights = torch.tensor(weights, dtype=torch.float32)
