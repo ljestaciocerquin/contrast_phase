@@ -9,7 +9,7 @@ from matplotlib.patches import Patch
 from monai.transforms import LoadImage
 from monai.data import Dataset, DataLoader
 from monai.transforms import (Compose,LoadImaged,ScaleIntensityd, ScaleIntensityRanged, Resized)
-from monai.networks.nets import resnet10, resnet18
+from monai.networks.nets import resnet10
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import LabelEncoder
 from sklearn.metrics import accuracy_score, classification_report, confusion_matrix
@@ -413,56 +413,55 @@ class CTDataset(Dataset):
     def __len__(self):
         return len(self.image_files)
 
-    def __getitem__(self, idx, retries = 1):
+    def __getitem__(self, idx):
+        # -------- Load image --------
+        image_array = self.loader(self.image_files[idx])
+
+        organ_array = None
+        volume = image_array  # default fallback
+
+        # -------- Try organ processing --------
         try:
-            # ---------------- Load ----------------
-            image_array = self.loader(self.image_files[idx])
-            try:
-                organ_array_single = self.loader(self.organ_files[idx])
+            organ_array_single = self.loader(self.organ_files[idx])
 
-                # ---------------- Multi-channel mask ----------------
-                organ_array = multi_channel(self.organ_ids, organ_array_single)
+            # check empty explicitly (better than relying on exception)
+            if np.size(organ_array_single) == 0:
+                raise ValueError("Empty organ file")
 
-                # ---------------- Crop ----------------
-                ct_cropped = keep_organ_volume(image_array, organ_array)
-                volume = ct_cropped
-                
-            
-            except Exception as e:
-                print(f"Skipping {self.organ_files[idx]}: {e}")
-                volume = image_array
-                organ_array = None
+            organ_array = multi_channel(self.organ_ids, organ_array_single)
 
-            # ----------------- Mode handling -----------------
-            if self.mode == "3d":
-                x = volume  # (1, H, W, D)
-            elif self.mode == "2p5d":
-                x = get_2p5d_slices(volume = volume, organ_array = organ_array, num_slices=self.num_slices)  # (k, H, W)
-            else:
-                raise ValueError(f"Unknown mode: {self.mode}")
+            # crop ONLY if valid
+            volume = keep_organ_volume(image_array, organ_array)
 
-            # ---------------- Apply transforms ----------------
-            if self.transform is not None:
-                sample = {"image": x}
-                sample = self.transform(sample)
-                x = sample["image"]
-
-            # ---------------- Ensure MONAI MetaTensor ----------------
-            if not isinstance(x, MetaTensor):
-                x = MetaTensor(x)
-
-            y = torch.tensor(self.labels[idx], dtype=torch.long)
-
-            return {"image": x, "label": y}
-        
-        # ---------------- Skip faulty files ----------------
         except Exception as e:
-            print(f"Skipping {self.organ_files[idx]}: {e}")
+            print(f"Fallback to full volume for {self.organ_files[idx]}: {e}")
 
-            if retries <= 0:
-                raise RuntimeError(f"Too many failed retries at index {idx}")
+        # -------- Mode handling --------
+        if self.mode == "3d":
+            x = volume
 
-            return self.__getitem__((idx + 1) % len(self), retries=retries - 1)
+        elif self.mode == "2p5d":
+            x = get_2p5d_slices(
+                volume=volume,
+                organ_array=organ_array,  # None if failed → handled inside
+                num_slices=self.num_slices
+            )
+
+        else:
+            raise ValueError(f"Unknown mode: {self.mode}")
+
+        # -------- Transforms --------
+        if self.transform is not None:
+            sample = {"image": x}
+            sample = self.transform(sample)
+            x = sample["image"]
+
+        if not isinstance(x, MetaTensor):
+            x = MetaTensor(x)
+
+        y = torch.tensor(self.labels[idx], dtype=torch.long)
+
+        return {"image": x, "label": y}
 
 
 def main():
@@ -483,7 +482,7 @@ def main():
     labels = le.fit_transform(labels_raw)
 
     mode = "2p5d"
-    num_slices = 5
+    num_slices = 7
 
 
     organ_ids,_ = list_organs(selected = [1,2,3,5,8
@@ -523,7 +522,7 @@ def main():
         transforms, batches = transforms_3d, 1
         
     else:
-        transforms, batches = transforms_2d, 16
+        transforms, batches = transforms_2d, 32
 
     # Train dataset and dataloader
     train_dataset = CTDataset(
@@ -546,7 +545,7 @@ def main():
         train_dataset,
         batch_size=batches,
         shuffle=False,
-        num_workers=4,
+        num_workers=8,
         pin_memory=False,
         sampler=sampler
     )
@@ -567,7 +566,7 @@ def main():
         val_dataset,
         batch_size=batches,
         shuffle=False,
-        num_workers=4,
+        num_workers=8,
         pin_memory=False
     )
     
@@ -622,7 +621,7 @@ def main():
         test_dataset,
         batch_size=batches,
         shuffle=False,
-        num_workers=0,
+        num_workers=8,
         pin_memory=False
         )
         
