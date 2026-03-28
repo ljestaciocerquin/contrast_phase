@@ -238,6 +238,11 @@ def train_cnn(model, train_loader, weights=None, val_loader=None, epochs=10, lr=
     optimizer = torch.optim.Adam(model.parameters(), lr=lr, weight_decay=weight_decay)
     scaler = torch.cuda.amp.GradScaler()
 
+    best_val_loss = float("inf")
+    patience = 3
+    counter = 0
+    best_model_state = None
+
     for epoch in range(epochs):
 
 
@@ -308,11 +313,23 @@ def train_cnn(model, train_loader, weights=None, val_loader=None, epochs=10, lr=
                 flush=True
             )
 
-        else:
-            print(
-                f"Epoch {epoch+1}: train_loss={avg_train_loss:.4f}, train_acc={train_acc:.4f}",
-                flush=True
-            )
+            # Early stopping
+            if avg_val_loss < best_val_loss:
+                best_val_loss = avg_val_loss
+                counter = 0
+                best_model_state = model.state_dict()  # saving best weights
+                print("New best model")
+            else:
+                counter += 1
+                print(f"No improvement ({counter}/{patience})")
+
+                if counter >= patience:
+                    print("Early stopping triggered")
+                    break
+
+    # Loading the best model
+    if best_model_state is not None:
+        model.load_state_dict(best_model_state)
 
     return model
 
@@ -588,7 +605,7 @@ def main():
 
         # Add dropout for regularization
         model.fc = nn.Sequential(
-            nn.Dropout(p=0.3),
+            nn.Dropout(p=0.4),
             nn.Linear(in_features, 6)
 )
 
@@ -596,11 +613,8 @@ def main():
     # # Simple 3D CNN trained from scratch
     # model = Small3DCNN()
 
-    # weights = compute_class_weight(class_weight="balanced", classes=np.unique(train_labels),y=train_labels)
-    # weights = torch.tensor(weights, dtype=torch.float32)
 
     trained_model = train_cnn(model, train_loader, weights = None, val_loader=val_loader)
-
 
 
     # ------------------------------------------------- Evaluate --------------------------------------------------
@@ -613,8 +627,7 @@ def main():
         organ_ids,
         mode=mode,
         num_slices=num_slices,
-        transform=transforms,
-        sampler=sampler
+        transform=transforms
     )
 
     test_loader = DataLoader(
@@ -622,10 +635,14 @@ def main():
         batch_size=batches,
         shuffle=False,
         num_workers=8,
-        pin_memory=False
+        pin_memory=False,
+        sampler=sampler
         )
         
     evaluate_model(trained_model, test_loader, class_names=le.classes_)
+
+    # Saving the trained model
+    torch.save(trained_model.state_dict(), "/projects/net_contrast_classification/contrast_phase/Time_estim/trained_model.pth")
 
 
 if __name__ == "__main__":
