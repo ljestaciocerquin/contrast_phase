@@ -4,8 +4,6 @@ import numpy as np
 import torch.nn as nn
 from tqdm import tqdm
 from pathlib import PureWindowsPath
-import torchvision.models as models
-from matplotlib.patches import Patch
 from monai.transforms import LoadImage
 from monai.data import Dataset, DataLoader
 from monai.transforms import (Compose,LoadImaged,ScaleIntensityd, ScaleIntensityRanged, Resized)
@@ -174,7 +172,7 @@ def get_2p5d_slices(volume, organ_array = None, num_slices=7):
 
     return slices
 
-def create_dataset(image_files, organ_files, organ_ids, mode="3d", num_slices=5):
+def create_3d_dataset(image_files, organ_files, organ_ids):
     loader = LoadImage(image_only=True, ensure_channel_first=True)
     
     cropped_images = []
@@ -212,17 +210,12 @@ def create_dataset(image_files, organ_files, organ_ids, mode="3d", num_slices=5)
     dataset = []
 
     for image in cropped_images:
-        if mode == "3d":
-            try:
-                ct_padded = pad_to_shape(image, mean_shape)
-                dataset.append(ct_padded)
-            except Exception as e:
-                print(f"Padding failed: {e}")
+        try:
+            ct_padded = pad_to_shape(image, mean_shape)
+            dataset.append(ct_padded)
+        except Exception as e:
+            print(f"Padding failed: {e}")
 
-
-        elif mode == "2p5d":
-            slices = get_2p5d_slices(image, num_slices=num_slices)
-            dataset.append(slices)  # (k, H, W)
 
 
     return dataset, valid_indices
@@ -269,7 +262,7 @@ def train_cnn(model, train_loader, weights=None, val_loader=None, epochs=10, lr=
             scaler.update()
 
             train_loss += loss.item()
-            preds = torch.argmax(outputs, dim=1)
+            preds = torch.argmax(outputs, dim=1)            # outputs = logits => pick the highest logit as the class label
             train_correct += (preds == labels).sum().item()
             train_total += labels.size(0)
 
@@ -323,9 +316,9 @@ def train_cnn(model, train_loader, weights=None, val_loader=None, epochs=10, lr=
                 counter += 1
                 print(f"No improvement ({counter}/{patience})")
 
-                if counter >= patience:
-                    print("Early stopping triggered")
-                    break
+                # if counter >= patience:
+                #     print("Early stopping triggered")
+                #     break
 
     # Loading the best model
     if best_model_state is not None:
@@ -480,6 +473,110 @@ class CTDataset(Dataset):
 
         return {"image": x, "label": y}
 
+def create_loaders(data, organ_ids, val_size = 0.2, test_size = 0.2, mode = "3d", weights = False):
+
+    files, organ_files, labels_raw = data_load(data)
+
+    le = LabelEncoder()
+    labels = le.fit_transform(labels_raw)
+
+
+    # --------------------- Data split -----------------------
+
+    temp_idx, test_idx = train_test_split(
+    np.arange(len(files)),
+    test_size=test_size,        # 20% test
+    random_state=42,            # for reproducibility
+    stratify=labels             # maintain class balance
+    )
+
+    train_idx, val_idx = train_test_split(
+        temp_idx,
+        test_size=val_size,
+        random_state=42,
+        stratify=labels[temp_idx]
+    )
+
+    class_counts = np.bincount(labels[train_idx])
+    weights = 1. / class_counts
+    sample_weights = weights[labels[train_idx]]
+    sampler = WeightedRandomSampler(sample_weights, len(sample_weights))
+
+    # --------------- Transforms & Batches ------------------
+
+    transforms_3d = Compose([ScaleIntensityRanged(keys=["image"],a_min=-1000, a_max=1000, b_min=0.0, b_max=1.0,clip=True), 
+                            Resized(keys=["image"], spatial_size=(64,64,64))])
+
+    transforms_2d = Compose([ScaleIntensityRanged(keys=["image"], a_min=-1000, a_max=1000, b_min=0.0, b_max=1.0, clip=True),
+                            Resized(keys=["image"], spatial_size=(96, 96))])
+    
+
+    transforms, batches = [transforms_3d, 1 if mode == "3d" else transforms_2d, 32]
+
+
+    # ----------------------- Train -------------------------
+
+    train_dataset = CTDataset(
+                        image_files = [files[i] for i in train_idx],
+                        organ_files = [organ_files[i] for i in train_idx],
+                        labels = labels[train_idx],
+                        organ_ids=organ_ids,                          # take only liver - we want to segment only the liver metastases => saves memory
+                        transform=transforms
+                    )
+    
+
+    train_loader = DataLoader(
+        train_dataset,
+        batch_size=batches,
+        shuffle=False,
+        num_workers=8,
+        sampler=sampler,
+        pin_memory=False
+    )
+
+    # -------------------- Validation --------------------
+
+    val_dataset = CTDataset(
+                            image_files = [files[i] for i in val_idx],
+                            organ_files = [organ_files[i] for i in val_idx],
+                            labels = labels[val_idx],
+                            organ_ids=organ_ids,                      
+                            transform=transforms
+                        )
+
+    val_loader = DataLoader(
+                            val_dataset,
+                            batch_size=batches,
+                            shuffle=False,
+                            num_workers=8,
+                            pin_memory=False
+                        )
+
+    # ----------------------- Test --------------------
+
+    test_dataset = CTDataset(
+                            image_files = [files[i] for i in test_idx],
+                            organ_files = [organ_files[i] for i in test_idx],
+                            labels = labels[test_idx],
+                            organ_ids=organ_ids,                     
+                            transform=transforms
+                        )
+
+    test_loader = DataLoader(
+                            test_dataset,
+                            batch_size=batches,
+                            shuffle=False,
+                            num_workers=0,                       # keep at zero
+                            pin_memory=False
+                        )
+
+    if weights == True:
+        return train_loader, val_loader, test_loader, le, weights
+    else:
+        return train_loader, val_loader, test_loader, le
+
+
+
 
 def main():
 
@@ -493,100 +590,14 @@ def main():
 
     data = pd.read_csv("/projects/net_contrast_classification/contrast_phase/data/cleaned_data_1.csv")
 
-    files, organ_files, labels_raw = data_load(data)
-    
-    le = LabelEncoder()
-    labels = le.fit_transform(labels_raw)
-
     mode = "2p5d"
     num_slices = 7
 
-
-    organ_ids,_ = list_organs(selected = [1,2,3,5,8
-                                          ,9,13,51,52
-                                          ,63,64,65,66
-                                          ], by = "id")
-
-    temp_idx, test_idx = train_test_split(
-        np.arange(len(files)),
-        test_size=0.2,        # 20% test
-        random_state=42,      # for reproducibility
-        stratify=labels       # maintain class balance
-    )
-
-    train_idx, val_idx = train_test_split(
-        temp_idx,
-        test_size=0.2,
-        random_state=42,
-        stratify=labels[temp_idx]
-    )
-
-    transforms_3d = Compose([ScaleIntensityRanged(keys=["image"],a_min=-1000, a_max=1000,
-                                               b_min=0.0, b_max=1.0,clip=True), 
-                            Resized(keys=["image"], spatial_size=(64,64,64))])
+    organ_ids = [1,2,3,5,8,9,13,51,52,63,64,65,66]
     
-    transforms_2d = Compose([ScaleIntensityRanged(keys=["image"], a_min=-1000, a_max=1000,
-                                                b_min=0.0, b_max=1.0, clip=True),
-                            Resized(keys=["image"], spatial_size=(96, 96))])
-
-
-
-    # --------------------------------------------------- Train ---------------------------------------------------
-    # -------------------------------------------------------------------------------------------------------------
-
-
-    if mode == "3d":
-        transforms, batches = transforms_3d, 1
-        
-    else:
-        transforms, batches = transforms_2d, 32
-
-    # Train dataset and dataloader
-    train_dataset = CTDataset(
-        [files[i] for i in train_idx],
-        [organ_files[i] for i in train_idx],
-        labels[train_idx],
-        organ_ids,
-        mode=mode,
-        num_slices=num_slices,
-        transform=transforms
-    )
-
-
-    class_counts = np.bincount(labels[train_idx])
-    weights = 1. / class_counts
-    sample_weights = weights[labels[train_idx]]
-    sampler = WeightedRandomSampler(sample_weights, len(sample_weights))
-
-    train_loader = DataLoader(
-        train_dataset,
-        batch_size=batches,
-        shuffle=False,
-        num_workers=8,
-        pin_memory=False,
-        sampler=sampler
-    )
-
-
-    # Validation dataset and dataloader
-    val_dataset = CTDataset(
-        [files[i] for i in val_idx],
-        [organ_files[i] for i in val_idx],
-        labels[val_idx],
-        organ_ids,
-        mode=mode,
-        num_slices=num_slices,
-        transform=transforms
-    )
-
-    val_loader = DataLoader(
-        val_dataset,
-        batch_size=batches,
-        shuffle=False,
-        num_workers=8,
-        pin_memory=False
-    )
     
+    train_loader, val_loader, test_loader, le, weights = create_loaders(data,organ_ids=organ_ids, mode=mode, weights=True)
+
     for batch in train_loader:
         print("Train batch:", batch["image"].shape)
         break
@@ -594,6 +605,9 @@ def main():
     for batch in val_loader:
         print("Validation batch:", batch["image"].shape)
         break
+
+    # --------------------------------------------------- Train ---------------------------------------------------
+    # -------------------------------------------------------------------------------------------------------------
 
 
     # Initialize pretrained 3D or 2.5D ResNet model
@@ -607,42 +621,37 @@ def main():
         model.fc = nn.Sequential(
             nn.Dropout(p=0.4),
             nn.Linear(in_features, 6)
-)
+            )
 
 
     # # Simple 3D CNN trained from scratch
     # model = Small3DCNN()
 
-
-    trained_model = train_cnn(model, train_loader, weights = None, val_loader=val_loader)
-
+    trained_model = train_cnn(model,
+                            train_loader,
+                            weights = torch.tensor(weights, dtype=torch.float32),
+                            val_loader=val_loader,
+                            epochs = 20)
 
     # ------------------------------------------------- Evaluate --------------------------------------------------
     # -------------------------------------------------------------------------------------------------------------
-
-    test_dataset = CTDataset(
-        [files[i] for i in test_idx],
-        [organ_files[i] for i in test_idx],
-        labels[test_idx],
-        organ_ids,
-        mode=mode,
-        num_slices=num_slices,
-        transform=transforms
-    )
-
-    test_loader = DataLoader(
-        test_dataset,
-        batch_size=batches,
-        shuffle=False,
-        num_workers=8,
-        pin_memory=False,
-        sampler=sampler
-        )
         
-    evaluate_model(trained_model, test_loader, class_names=le.classes_)
-
     # Saving the trained model
-    torch.save(trained_model.state_dict(), "/projects/net_contrast_classification/contrast_phase/Time_estim/trained_model.pth")
+    save_path = "/projects/net_contrast_classification/contrast_phase/Time_estim/trained_model.pth"
+
+    try:
+        # ensure directory exists
+        os.makedirs(os.path.dirname(save_path), exist_ok=True)
+
+        torch.save(trained_model.state_dict(), save_path)
+        print(f"Model saved successfully at: {save_path}")
+
+    except Exception as e:
+        print(f"Error saving model: {e}")
+
+    
+    # Evaluation 
+    evaluate_model(trained_model, test_loader, class_names=le.classes_)
 
 
 if __name__ == "__main__":
