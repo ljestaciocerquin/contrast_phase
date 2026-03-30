@@ -17,7 +17,6 @@ from monai.losses import DiceLoss
 from monai.metrics import DiceMetric
 import segmentation_models_pytorch as smp
 
-
 import sys
 sys.path.append("/projects/net_contrast_classification/contrast_phase")
 
@@ -248,102 +247,6 @@ def train_seg(model, train_loader, val_loader=None, epochs=10, lr=1e-4, weight_d
 
     return model
 
-def create_loaders(data, val_size = 0.2, test_size = 0.2, mode = "3d"):
-
-    files, organ_files, seg_files, labels_raw = data_load(data)
-
-    le = LabelEncoder()
-    labels = le.fit_transform(labels_raw)
-
-    # -------------------- Data split ----------------------
-
-    temp_idx, test_idx = train_test_split(
-    np.arange(len(files)),
-    test_size=test_size,        # 20% test
-    random_state=42,            # for reproducibility
-    stratify=labels             # maintain class balance
-    )
-
-    train_idx, val_idx = train_test_split(
-        temp_idx,
-        test_size=val_size,
-        random_state=42,
-        stratify=labels[temp_idx]
-    )
-
-    # --------------- Transforms & Batches ------------------
-
-    transforms_3d = Compose([ScaleIntensityRanged(keys=["image"],a_min=-1000, a_max=1000, b_min=0.0, b_max=1.0,clip=True), 
-                            Resized(keys=["image"], spatial_size=(64,64,64))])
-
-    transforms_2d = Compose([ScaleIntensityRanged(keys=["image"], a_min=-1000, a_max=1000, b_min=0.0, b_max=1.0, clip=True),
-                            Resized(keys=["image"], spatial_size=(96, 96))])
-    
-
-    transforms, batches = [transforms_3d, 1 if mode == "3d" else transforms_2d, 32]
-
-
-    # ---------------------- Train ------------------------
-
-    train_dataset = CTDataset(
-                        image_files = [files[i] for i in train_idx],
-                        organ_files = [organ_files[i] for i in train_idx],
-                        seg_files = [seg_files[i] for i in train_idx],
-                        labels = labels[train_idx],
-                        organ_ids=[5],                          # take only liver - we want to segment only the liver metastases => saves memory
-                        transform=transforms
-                    )
-    
-
-    train_loader = DataLoader(
-        train_dataset,
-        batch_size=batches,
-        shuffle=False,
-        num_workers=8,
-        pin_memory=False
-    )
-
-    # -------------------- Validation --------------------
-
-    val_dataset = CTDataset(
-                            image_files = [files[i] for i in val_idx],
-                            organ_files = [organ_files[i] for i in val_idx],
-                            seg_files = [seg_files[i] for i in val_idx],
-                            labels = labels[val_idx],
-                            organ_ids=[5],                      
-                            transform=transforms
-                        )
-
-    val_loader = DataLoader(
-                            val_dataset,
-                            batch_size=batches,
-                            shuffle=False,
-                            num_workers=8,
-                            pin_memory=False
-                        )
-
-    # ----------------------- Test --------------------
-
-    test_dataset = CTDataset(
-                            image_files = [files[i] for i in test_idx],
-                            organ_files = [organ_files[i] for i in test_idx],
-                            seg_files = [seg_files[i] for i in test_idx],
-                            labels = labels[test_idx],
-                            organ_ids=[5],                     
-                            transform=transforms
-                        )
-
-    test_loader = DataLoader(
-                            test_dataset,
-                            batch_size=batches,
-                            shuffle=False,
-                            num_workers=0,                       # keep at zero
-                            pin_memory=False
-                        )
-
-
-    return train_loader, val_loader, test_loader
-
 def evaluate_model(model, test_loader):
 
     if device is None:
@@ -389,11 +292,10 @@ def main():
     in_channels=1,
     classes=1
     )
-    
+
     trained_model = train_seg(model, train_loader, weights = None, val_loader=val_loader)
 
     pred_masks = evaluate_model(trained_model, test_loader)
-
 
 
 if __name__ == "__main__":
