@@ -22,118 +22,7 @@ sys.path.append("/projects/net_contrast_classification/contrast_phase")
 
 from Radiomics.models_pipe import train_tree_models
 from Radiomics.data_preprocessing import radiomics_load, train_test_split, preprocess_train, preprocess_test
-from Time_estim.time_estim import multi_channel, keep_organ_volume, get_2p5d_slices
 
-
-def data_load(dataset, sample = None):
-
-    dataset['server_folder'] = dataset.exist_on_server.apply(lambda x: "/mnt/rhea/data_private/IRBd23-231/GEPNETs/ARTINET" 
-                                                             if pd.notna(x)  
-                                                             else "/mnt/rhea/data_private/IRBd23-231/GEPNETs/ARTINET/not_on_server")
-    
-    dataset = dataset[(dataset.contrast.isin(['Arterial', "Portal"]))
-                & (dataset.is_liver_imaged == "Yes")
-                & (dataset.phase_timing != '0.0')
-                & (dataset.is_lesionfree == "No") # remove later
-                ]
-    
-    dataset = dataset.sort_values(by=["SubjectKeyRadiology", "ExamDate", "contrast"], ascending=True)
-
-    if not sample:
-        files = [os.path.join(row['server_folder'], PureWindowsPath(row['MatchKey']).name) for _, row in dataset.iterrows()]
-        organ_files = [f.replace(".nii.gz", ".organs.nii.gz") for f in files]
-        seg_files = [f.replace(".nii.gz", ".seg.nii.gz") for f in files]
-        labels = list(dataset.contrast)
-
-    else:
-        dataset['contrast_timing'] = (dataset["contrast"].str.cat(dataset["phase_timing"], sep=" "))
-        dataset["contrast_timing"] = dataset["contrast_timing"].astype(str).str.strip()
-
-        sampled_df = dataset.groupby('contrast_timing', group_keys=False).apply(lambda x: x.sample(n=min(len(x), sample), random_state=42))
-
-        files = [os.path.join(row['server_folder'], PureWindowsPath(row['MatchKey']).name) for _, row in sampled_df.iterrows()]
-        organ_files = [f.replace(".nii.gz", ".organs.nii.gz") for f in files]
-        seg_files = [f.replace(".nii.gz", ".seg.nii.gz") for f in files]
-        labels = list(sampled_df.contrast)
-
-
-
-    return files, organ_files, seg_files, labels
-
-class CTDataset(Dataset):
-    def __init__(self, image_files, organ_files, seg_files, labels,
-                 organ_ids, mode="3d", num_slices=None, transform=None):
-        
-        self.image_files = image_files
-        self.organ_files = organ_files
-        self.seg_files = seg_files
-        self.labels = labels
-        self.organ_ids = organ_ids
-        self.mode = mode
-        self.num_slices = num_slices
-        self.transform = transform  # MONAI transforms
-
-        self.loader = LoadImage(image_only=True, ensure_channel_first=True)
-
-    def __len__(self):
-        return len(self.image_files)
-
-    def __getitem__(self, idx):
-        # -------- Load image --------
-        image_array = self.loader(self.image_files[idx])
-        organ_array = self.loader(self.organ_files[idx])
-        seg_array = self.loader(self.seg_files[idx])
-        label = self.labels[idx]
-
-        organ_array = None
-        volume = image_array  # default fallback
-
-        # -------- Try organ processing --------
-        try:
-            organ_array_single = self.loader(self.organ_files[idx])
-
-            # check empty explicitly (better than relying on exception)
-            if np.size(organ_array_single) == 0:
-                raise ValueError("Empty organ file")
-
-            organ_array = multi_channel(self.organ_ids, organ_array_single)
-
-            # crop ONLY if valid
-            volume = keep_organ_volume(image_array, organ_array)
-
-        except Exception as e:
-            print(f"Fallback to full volume for {self.organ_files[idx]}: {e}")
-
-        # -------- Mode handling --------
-        if self.mode == "3d":
-            x = volume
-
-        elif self.mode == "2p5d":
-            x = get_2p5d_slices(
-                volume=volume,
-                organ_array=organ_array,  # None if failed → handled inside
-                num_slices=self.num_slices
-            )
-
-        else:
-            raise ValueError(f"Unknown mode: {self.mode}")
-
-        # -------- Transforms --------
-        if self.transform is not None:
-            sample = {"image": x}
-            sample = self.transform(sample)
-            x = sample["image"]
-
-        if not isinstance(x, MetaTensor):
-            x = MetaTensor(x)
-
-        y = seg_array
-        if not isinstance(y, MetaTensor):
-            y = MetaTensor(y)
-        
-        z = torch.tensor(label, dtype=torch.long)
-
-        return {"image": x, "mask": y, "label":z}
 
 def train_seg(model, train_loader, val_loader=None, epochs=10, lr=1e-4, weight_decay=1e-4):
     device = "cuda" if torch.cuda.is_available() else "cpu"
@@ -311,7 +200,7 @@ def create_loaders(data, val_size = 0.2, test_size = 0.2, mode = "3d"):
                             Resized(keys=["image"], spatial_size=(96, 96))])
     
 
-    transforms, batches = [transforms_3d, 1 if mode == "3d" else transforms_2d, 32]
+    transforms, batches = [(transforms_3d, 1) if mode == "3d" else transforms_2d, 32]
 
 
     # ---------------------- Train ------------------------
