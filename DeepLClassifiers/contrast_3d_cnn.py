@@ -4,7 +4,7 @@ import numpy as np
 import torch.nn as nn
 from tqdm import tqdm
 from monai.data import Dataset, DataLoader
-from monai.networks.nets import resnet10
+from monai.networks.nets import resnet18
 from torch.nn import CrossEntropyLoss
 from sklearn.preprocessing import LabelEncoder
 from sklearn.metrics import accuracy_score, classification_report, confusion_matrix
@@ -23,7 +23,7 @@ random.seed(seed)
 
 
 class PTDataset(Dataset):
-    def __init__(self, folder, label_name = "contrast", encoder=None, sample=None):
+    def __init__(self, folder, label_name="contrast", encoder=None, sample=None):
         self.files = sorted([
             os.path.join(folder, f)
             for f in os.listdir(folder)
@@ -33,64 +33,69 @@ class PTDataset(Dataset):
         if sample:
             self.files = self.files[:sample]
 
-        # Load all labels once
-        self.raw_labels = []
-        for f in self.files:
-            data = torch.load(f)
-            self.raw_labels.append(data[label_name])
+        self.label_name = label_name
 
-        # Fit encoder once
+        # -------- Load labels --------
+        self.raw_labels = []
+        self.keys = []
+
+        for f in self.files:
+            data = torch.load(f, map_location="cpu") 
+            self.raw_labels.append(str(data[label_name]))
+            self.keys.append(data["key"])           
+
+        # -------- Encode labels --------
         if encoder is None:
             self.le = LabelEncoder()
             self.le.fit(self.raw_labels)
         else:
             self.le = encoder
 
+        self.encoded_labels = self.le.transform(self.raw_labels)
+
     def __len__(self):
         return len(self.files)
 
     def __getitem__(self, idx):
-        data = torch.load(self.files[idx])
+        data = torch.load(self.files[idx], map_location="cpu")
 
         image = data["image"]
-        label = str(data[label_name])
-        label = self.le.transform([label])[0]
-        label = torch.tensor(label, dtype=torch.long)
+
 
         return {
+            "key": self.keys[idx],                          
             "image": image,
-            "label": label
-        }
+            "label": torch.tensor(self.encoded_labels[idx], dtype=torch.long)
+            }
     
-    
-# class FocalLoss(nn.Module):
-#     def __init__(self, alpha=None, gamma=2.0, reduction="mean"):
-#         """
-#         alpha: class weights (tensor of shape [num_classes]) or None
-#         gamma: focusing parameter (higher = more focus on hard examples)
-#         """
-#         super().__init__()
-#         self.alpha = alpha
-#         self.gamma = gamma
-#         self.reduction = reduction
+class FocalLoss(nn.Module):
+    def __init__(self, alpha=None, gamma=2.0, reduction="mean"):
+        """
+        alpha: class weights (tensor of shape [num_classes]) or None
+        gamma: focusing parameter (higher = more focus on hard examples)
+        """
+        super().__init__()
+        self.alpha = alpha
+        self.gamma = gamma
+        self.reduction = reduction
 
-#     def forward(self, logits, targets):
-#         ce_loss = F.cross_entropy(logits, targets, reduction="none")
+    def forward(self, logits, targets):
+        ce_loss = F.cross_entropy(logits, targets, reduction="none")
 
-#         pt = torch.exp(-ce_loss)  # probability of correct class
+        pt = torch.exp(-ce_loss)  # probability of correct class
 
-#         if self.alpha is not None:
-#             at = self.alpha[targets]
-#             ce_loss = at * ce_loss
+        if self.alpha is not None:
+            at = self.alpha[targets]
+            ce_loss = at * ce_loss
 
-#         loss = (1 - pt) ** self.gamma * ce_loss
+        loss = (1 - pt) ** self.gamma * ce_loss
 
-#         if self.reduction == "mean":
-#             return loss.mean()
-#         elif self.reduction == "sum":
-#             return loss.sum()
-#         else:
-#             return loss        
+        if self.reduction == "mean":
+            return loss.mean()
+        elif self.reduction == "sum":
+            return loss.sum()
+        else:
+            return loss        
 
 def train_cnn(model, train_loader, weights=None, val_loader=None, epochs=10, lr=1e-4, weight_decay = 1e-4):
     device = "cuda" if torch.cuda.is_available() else "cpu"
@@ -216,17 +221,27 @@ def evaluate_model(model, test_loader, device=None, class_names=None):
 
     all_preds = []
     all_labels = []
+    misclassifications = []
 
     with torch.no_grad():
         for batch in test_loader:
             images = batch["image"].to(device)
             labels = batch["label"].to(device)
+            keys = batch["key"]
 
             outputs = model(images)
             preds = torch.argmax(outputs, dim=1)
 
             all_preds.append(preds.cpu())
             all_labels.append(labels.cpu())
+
+            for i in range(len(keys)):
+                if preds[i] != labels[i]:
+                    misclassifications.append({
+                        "key": keys[i],
+                        "true": class_names[labels[i].item()],
+                        "pred": class_names[preds[i].item()]
+                    })
 
     all_preds = torch.cat(all_preds)
     all_labels = torch.cat(all_labels)
@@ -241,11 +256,13 @@ def evaluate_model(model, test_loader, device=None, class_names=None):
         "confusion_matrix": cm
     }
 
+
+
     print(f"\nTest Accuracy: {acc:.4f}")
     print("Classification Report:\n", report)
     print("Confusion Matrix:\n", cm)
 
-    return metrics
+    return metrics, misclassifications
 
 class Small3DCNN(nn.Module):
     def __init__(self, num_classes=6):
@@ -312,6 +329,8 @@ class Small3DCNN_1(nn.Module):
         out = self.classifier(x)
         return out
     
+
+
 def main():
 
     if torch.cuda.is_available():
@@ -321,17 +340,22 @@ def main():
     # -------------------------------------------------------------------------------------------------------------
 
     path = "/mnt/rhea/data_private/IRBd23-231/GEPNETs/ARTINET/contrast_preprocessed"
-    label_name = "contrast"
-    batch_size = 16
+    batch_size = 5
     epochs = 10
+
+    label_map = {0: "contrast", 1: "phase"}
+    task_id = int(os.environ.get("SLURM_ARRAY_TASK_ID", 0))
+    label_name = label_map[task_id]
+
+    print(f"Training 3D CNN for contrast phase classification with label: {label_name}", flush=True)
 
     train_dataset = PTDataset(f"{path}/train", label_name=label_name, encoder=None)
     le = train_dataset.le
     val_dataset = PTDataset(f"{path}/val", label_name=label_name, encoder=le)
     test_dataset = PTDataset(f"{path}/test", label_name=label_name, encoder=le)
 
-    train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True)
-    val_loader = DataLoader(val_dataset, batch_size=batch_size, shuffle=False)
+    train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True, num_workers = 4)
+    val_loader = DataLoader(val_dataset, batch_size=batch_size, shuffle=False, num_workers = 4)
     test_loader = DataLoader(test_dataset, batch_size=batch_size, shuffle=False)
 
     for batch in train_loader:
@@ -342,16 +366,25 @@ def main():
 
     # --------------------------------------------------- Train ---------------------------------------------------
     # -------------------------------------------------------------------------------------------------------------
-
+    print("Model: Small3DCNN", flush=True)
 
     # Simple 3D CNN trained from scratch
-    model = Small3DCNN_1(num_classes=len(le.classes_))
+    model = Small3DCNN(num_classes=len(le.classes_))
+
+
+    # model = resnet18(
+    #         spatial_dims=3,
+    #         n_input_channels=1,   
+    #         num_classes=len(le.classes_),
+    #         pretrained = False
+    # )
 
     trained_model = train_cnn(model,
                             train_loader,
                             weights = None,
                             val_loader=val_loader,
                             epochs = epochs)
+    
 
     # ------------------------------------------------- Evaluate --------------------------------------------------
     # -------------------------------------------------------------------------------------------------------------
@@ -371,7 +404,10 @@ def main():
 
     
     # Evaluation 
-    evaluate_model(trained_model, test_loader, class_names=le.classes_)
+    _, misclassifications = evaluate_model(trained_model, test_loader, class_names=le.classes_)
+
+    df = pd.DataFrame(misclassifications)
+    df.to_csv(f"/projects/net_contrast_classification/contrast_phase/DeepLClassifiers/{label_name}_misclassifications.csv", index=False)
 
 
 if __name__ == "__main__":
