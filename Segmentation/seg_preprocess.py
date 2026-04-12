@@ -12,6 +12,9 @@ sys.path.append("/projects/net_contrast_classification/contrast_phase")
 from Preprocessing.cnn_preprocess import Preprocess3D
 from Radiomics.radiomics_pipeline import multi_channel
 from sklearn.model_selection import train_test_split
+import warnings
+warnings.filterwarnings("ignore", category=FutureWarning)
+from sklearn.model_selection import GroupShuffleSplit
 
 
 
@@ -25,8 +28,7 @@ def files_load(data_dir, sample = None):
     
     dataset = dataset[(dataset.contrast.isin(['Arterial', "Portal"]))
                 & (dataset.is_liver_imaged == "Yes")
-                & (dataset.phase_timing != '0.0')
-                & (dataset.is_lesionfree == "No") # remove later
+                & (dataset.phase_timing != '0.0')                                                      
                 ]
     
     dataset = dataset.sort_values(by=["SubjectKeyRadiology", "ExamDate", "contrast"], ascending=True)
@@ -37,6 +39,7 @@ def files_load(data_dir, sample = None):
         seg_files = [f.replace(".nii.gz", ".seg.nii.gz") for f in files]
         labels = dataset['contrast'].tolist()
         keys = dataset['MatchKey'].tolist()
+        patient_ids = dataset['SubjectKeyRadiology'].tolist()
 
     else:
         sampled_df = (
@@ -48,18 +51,37 @@ def files_load(data_dir, sample = None):
 
         files = [os.path.join(row['server_folder'], PureWindowsPath(row['MatchKey']).name) for _, row in sampled_df.iterrows()]
         organ_files = [f.replace(".nii.gz", ".organs.nii.gz") for f in files]
-        seg_files = [f.replace(".nii.gz", ".seg.nii.gz") for f in files]
+        seg_files = [f.replace(".nii.gz", ".seg.nii.gz") for f in files] 
         labels = sampled_df['contrast'].tolist()
         keys = sampled_df['MatchKey'].tolist()
+        patient_ids = sampled_df['SubjectKeyRadiology'].tolist()
 
 
-    return keys, files, organ_files, seg_files, labels
+    return patient_ids, keys, files, organ_files, seg_files, labels
+
+def group_train_test_split(indices, test_size=0.2, groups=None):
+    """
+    Splits indices into train/test without splitting the same group across sets.
+    
+    Args:
+        indices: array-like of indices to split (e.g., np.arange(len(images)))
+        test_size: fraction of data to use as test
+        groups: array-like of same length as indices indicating group membership
+    
+    Returns:
+        train_idx, test_idx: arrays of indices
+    """
+    splitter = GroupShuffleSplit(test_size=test_size, n_splits=1, random_state=42)
+    train_idx, test_idx = next(splitter.split(indices, groups=groups))
+
+    return train_idx, test_idx
 
 class PreprocessSeg():
-    def __init__(self, keys, image_files, organ_files, seg_files, labels, organ_ids,
+    def __init__(self, patient_ids, keys, image_files, organ_files, seg_files, labels, organ_ids,
                 test_size = 0.2, pixdim=(1,1,1), resize = (128,128,128)
                 ):
         
+        self.patient_ids=patient_ids
         self.keys=np.array(keys)
         self.image_files=image_files
         self.organ_files=organ_files
@@ -97,23 +119,15 @@ class PreprocessSeg():
 
         # self.register = # ADD IMAGE REGISTRATION
 
-    def data_split(self):
+    def data_split(self, image_files, patient_ids):
+        all_indices = np.arange(len(image_files))
 
+        # First split: train+val vs test
+        temp_idx, test_idx = group_train_test_split(all_indices, test_size=0.2, groups=patient_ids)
 
-        temp_idx, test_idx = train_test_split(
-                                            np.arange(len(self.image_files)),
-                                            test_size=self.test_size,             # 20% test
-                                            random_state=42,                      # for reproducibility
-                                            stratify=self.labels                  # maintain class balance
-                                            )
+        # Second split: train vs val
+        train_idx, val_idx = group_train_test_split(temp_idx, test_size=0.2, groups=np.array(patient_ids)[temp_idx])
 
-        train_idx, val_idx = train_test_split(
-                                            temp_idx,
-                                            test_size=self.test_size,
-                                            random_state=42,
-                                            stratify=self.labels[temp_idx]
-                                            )
-        
         return train_idx, val_idx, test_idx
 
     def data_load(self,idx):
@@ -290,7 +304,7 @@ class PreprocessSeg():
 
 def main():
     data_dir = "/projects/net_contrast_classification/contrast_phase/data/cleaned_data_1.csv"
-    keys, image_files, organ_files, seg_files, labels = files_load(data_dir, sample = 300)
+    keys, image_files, organ_files, seg_files, labels = files_load(data_dir, sample = None)
     organ_ids = [5]   # liver ID in organ segmentation maps
 
     preprocessor = PreprocessSeg(
