@@ -9,7 +9,6 @@ from monai.transforms import (Compose, LoadImage, Resized, Spacingd, ScaleIntens
 import torch.nn.functional as F
 from monai.data import MetaTensor
 from cnn_preprocess import group_train_test_split
-from cnn_preprocess.Preprocess3D import Preprocess3D
 
 import sys
 sys.path.append("/projects/net_contrast_classification/contrast_phase")
@@ -160,6 +159,7 @@ class PairedPreprocess:
         self.pixdim=pixdim
         self.resize=resize
 
+
         self.loader=LoadImage(image_only=True, ensure_channel_first=True)
         self.transforms = Compose([
                                     Spacingd(
@@ -244,6 +244,36 @@ class PairedPreprocess:
 
         return a_image, p_image, a_organs, p_organs, times
 
+    def cropping(self, image, organ_array, lesions=None):
+        # Create single-channel foreground mask
+        foreground_mask = torch.from_numpy((organ_array.sum(axis=0) > 0).astype(np.float32))
+
+        # Compute bounding box
+        mask_nonzero = torch.nonzero(foreground_mask)
+        if mask_nonzero.numel() == 0:
+            # fallback if mask is empty
+            zmin, ymin, xmin = 0, 0, 0
+            zmax, ymax, xmax = foreground_mask.shape
+        else:
+            zmin, ymin, xmin = mask_nonzero.min(0)[0]
+            zmax, ymax, xmax = mask_nonzero.max(0)[0] + 1
+
+        # Optional margin
+        margin = 20
+        zmin, ymin, xmin = max(zmin - margin, 0), max(ymin - margin, 0), max(xmin - margin, 0)
+        zmax = min(zmax + margin, foreground_mask.shape[0])
+        ymax = min(ymax + margin, foreground_mask.shape[1])
+        xmax = min(xmax + margin, foreground_mask.shape[2])
+
+        # Crop image, organ_array
+        image = image[:, zmin:zmax, ymin:ymax, xmin:xmax]
+        if organ_array is not None:
+            organ_array = organ_array[:, zmin:zmax, ymin:ymax, xmin:xmax]
+        if lesions is not None:
+            lesions = lesions[:, zmin:zmax, ymin:ymax, xmin:xmax]
+
+        return image, organ_array, lesions
+
     def preprocess_sample(self, idx):
 
         # -------- Load data --------
@@ -260,8 +290,8 @@ class PairedPreprocess:
         # -------- Cropping --------
         if a_organs is not None and p_organs is not None:
             try:
-                a_image, a_organs, _ = Preprocess3D.cropping(a_image, a_organs)
-                p_image, p_organs, _ = Preprocess3D.cropping(p_image, p_organs)
+                a_image, a_organs, _ = self.cropping(a_image, a_organs)
+                p_image, p_organs, _ = self.cropping(p_image, p_organs)
 
                 data["a_image"] = a_image
                 data["p_image"] = p_image
@@ -428,8 +458,7 @@ def main():
 
     preprocessor.process_and_save(
         my_indices,
-        os.path.join(output_dir, split_name),
-        split_name
+        os.path.join(output_dir, split_name)
     )
 
 
