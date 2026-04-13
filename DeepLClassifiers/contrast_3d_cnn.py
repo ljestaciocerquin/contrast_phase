@@ -4,7 +4,7 @@ import numpy as np
 import torch.nn as nn
 from tqdm import tqdm
 from monai.data import Dataset, DataLoader
-from monai.networks.nets import resnet18
+from monai.networks.nets import resnet18, resnet10
 from torch.nn import CrossEntropyLoss
 from sklearn.preprocessing import LabelEncoder
 from sklearn.metrics import accuracy_score, classification_report, confusion_matrix
@@ -285,7 +285,7 @@ class Small3DCNN(nn.Module):
             nn.AdaptiveAvgPool3d(1),
         )
 
-        self.classifier = nn.Linear(32, num_classes)
+        self.classifier = nn.Linear(64, num_classes)
 
     def forward(self, x):
         x = self.layers(x)
@@ -330,7 +330,6 @@ class Small3DCNN_1(nn.Module):
         return out
     
 
-
 def main():
 
     if torch.cuda.is_available():
@@ -340,7 +339,7 @@ def main():
     # -------------------------------------------------------------------------------------------------------------
 
     path = "/mnt/rhea/data_private/IRBd23-231/GEPNETs/ARTINET/contrast_preprocessed"
-    batch_size = 5
+    batch_size = 2
     epochs = 10
 
     label_map = {0: "contrast", 1: "phase"}
@@ -366,18 +365,18 @@ def main():
 
     # --------------------------------------------------- Train ---------------------------------------------------
     # -------------------------------------------------------------------------------------------------------------
-    print("Model: Small3DCNN", flush=True)
+    print("Model: ResNet", flush=True)
 
     # Simple 3D CNN trained from scratch
-    model = Small3DCNN(num_classes=len(le.classes_))
+    # model = Small3DCNN(num_classes=len(le.classes_))
 
 
-    # model = resnet18(
-    #         spatial_dims=3,
-    #         n_input_channels=1,   
-    #         num_classes=len(le.classes_),
-    #         pretrained = False
-    # )
+    model = resnet10(
+            spatial_dims=3,
+            n_input_channels=1,   
+            num_classes=len(le.classes_),
+            pretrained = False
+    )
 
     trained_model = train_cnn(model,
                             train_loader,
