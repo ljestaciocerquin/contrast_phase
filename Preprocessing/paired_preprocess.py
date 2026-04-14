@@ -362,7 +362,6 @@ class PairedPreprocess:
                 skipped += 1
 
         return counter, skipped
-    
 
     def run(self, output_root, split):
 
@@ -389,8 +388,6 @@ class PairedPreprocess:
                 test_idx, os.path.join(output_root), "test"
             )
             print(f"\nTest done! Saved {count}, skipped {skipped}", flush=True)
-
-
 
 def main():
     task_id = int(os.environ["SLURM_ARRAY_TASK_ID"])
