@@ -329,7 +329,6 @@ class Small3DCNN_1(nn.Module):
         out = self.classifier(x)
         return out
     
-
 def main():
 
     if torch.cuda.is_available():
