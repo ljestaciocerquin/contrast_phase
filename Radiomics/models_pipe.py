@@ -7,7 +7,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from sklearn.manifold import TSNE
 from IPython.display import display
-from Radiomics.data_preprocessing import preprocess_test, preprocess_train
+from data_preprocessing import preprocess_test, preprocess_train
 from sklearn.preprocessing import LabelEncoder
 from sklearn.model_selection import StratifiedGroupKFold
 
