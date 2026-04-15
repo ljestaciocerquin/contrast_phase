@@ -58,9 +58,6 @@ class TimeEstimator(nn.Module):
         # Remove classification head
         self.encoder.fc = nn.Identity()         # the encoder now returns [B, 512, D, H, W]
 
-        # Pooling to get fixed-size embedding
-        self.pool = nn.AdaptiveAvgPool3d(1)     # [B, 512, 1, 1, 1]
-
         # Regression head
         self.regressor = nn.Sequential(
             nn.Linear(embedding_dim * 4, 256),
@@ -72,12 +69,9 @@ class TimeEstimator(nn.Module):
         )
 
     def encode(self, x):
-        """
-        Encode input volume into embedding vector
-        """
-        x = self.encoder(x)                 # [B, 512, D, H, W]
-        x = self.pool(x)                    # [B, 512, 1, 1, 1]
-        x = x.view(x.size(0), -1)           # [B, 512]
+        x = self.encoder(x)              # already [B, 512]
+        if x.dim() > 2:
+            x = x.view(x.size(0), -1)    # safety fallback
         return x
     
 
