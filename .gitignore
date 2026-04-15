@@ -2,3 +2,10 @@
 matching.ipynb
 general.ipynb
 TS/total_seg_output
+DeepLClassifiers/time_estimation.ipynb
+DeepLClassifiers/experiment.ipynb
+Segmentation/cross_segment_preprocess.py
+Segmentation/cross_segment.py
+
+
+
