@@ -82,7 +82,7 @@ class FocalLoss(nn.Module):
     def forward(self, logits, targets):
         ce_loss = F.cross_entropy(logits, targets, reduction="none")
 
-        pt = torch.exp(-ce_loss)  # probability of correct class
+        pt = torch.exp(-ce_loss)                # probability of correct class
 
         if self.alpha is not None:
             at = self.alpha[targets]
@@ -97,18 +97,19 @@ class FocalLoss(nn.Module):
         else:
             return loss        
 
-def train_cnn(model, train_loader, weights=None, val_loader=None, epochs=10, lr=1e-4, weight_decay = 1e-4):
+def train_cnn(model, train_loader, weights=None, val_loader=None, epochs=10, lr=1e-4, weight_decay = 1e-4, loss = None):
     device = "cuda" if torch.cuda.is_available() else "cpu"
     model = model.to(device)
 
     if weights is not None:
         weights = weights.to(device)
 
-    loss_fn = CrossEntropyLoss()
+
+    loss_fn = CrossEntropyLoss() if not loss else loss
     optimizer = torch.optim.Adam(model.parameters(), lr=lr, weight_decay=weight_decay)
 
     best_val_loss = float("inf")
-    patience = 3
+    patience = 5
     counter = 0
     best_model_state = None
 
@@ -339,7 +340,7 @@ def main():
 
     path = "/mnt/rhea/data_private/IRBd23-231/GEPNETs/ARTINET/contrast_preprocessed"
     batch_size = 2
-    epochs = 10
+    epochs = 20
 
     label_map = {0: "contrast", 1: "phase"}
     task_id = int(os.environ.get("SLURM_ARRAY_TASK_ID", 0))
@@ -381,7 +382,8 @@ def main():
                             train_loader,
                             weights = None,
                             val_loader=val_loader,
-                            epochs = epochs)
+                            epochs = epochs,
+                            loss = FocalLoss())
     
 
     # ------------------------------------------------- Evaluate --------------------------------------------------
