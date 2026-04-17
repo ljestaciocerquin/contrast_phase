@@ -8,7 +8,7 @@ from pathlib import PureWindowsPath
 import torchvision.models as models
 from matplotlib.patches import Patch
 from monai.data import Dataset, DataLoader
-from monai.networks.nets import resnet10
+from monai.networks.nets import resnet10, resnet18
 from tqdm import tqdm
 import warnings
 warnings.filterwarnings("ignore", category=FutureWarning)
@@ -49,7 +49,7 @@ class TimeEstimator(nn.Module):
         super().__init__()
 
         # Encoder 
-        self.encoder = resnet10(
+        self.encoder = resnet18(
             spatial_dims=3,
             n_input_channels=1,
             num_classes=1  # dummy to keep structure valid => linear/classification layer [512, 1]
@@ -61,9 +61,11 @@ class TimeEstimator(nn.Module):
         # Regression head
         self.regressor = nn.Sequential(
             nn.Linear(embedding_dim * 4, 256),
+            # nn.LayerNorm(256),
             nn.ReLU(),
             nn.Dropout(0.3),
             nn.Linear(256, 64),
+            # nn.LayerNorm(64),
             nn.ReLU(),
             nn.Linear(64, 1)
         )
@@ -73,7 +75,6 @@ class TimeEstimator(nn.Module):
         if x.dim() > 2:
             x = x.view(x.size(0), -1)    # safety fallback
         return x
-    
 
     def forward(self, a_img, p_img):
         # initial shape of inputs = [B, 1, D, H, W]
@@ -82,37 +83,37 @@ class TimeEstimator(nn.Module):
         z_a = self.encode(a_img)            # [B, 512]
         z_p = self.encode(p_img)            # [B, 512]
 
-        print("z_a:", z_a.shape)
-        print("z_p:", z_p.shape)
 
         # feature interactions (important)
         z_diff = z_p - z_a                  # captures the changing contrast dynamics from arterial -> portal
         z_mul = z_p * z_a                   # captures the correlation between different vessels' contrast - separate static vs dynamic features
-        # z_abs = torch.abs(z_diff)         # stabilizes the training -> but we care about "direction"?
+        # z_abs = torch.abs(z_diff)           # stabilizes the training -> but we care about "direction"?
+        # z_ratio = z_p / (z_a + 1e-6)
 
         # concatenate everything
-        z = torch.cat([z_a, z_p, z_diff, z_mul], dim=1)
-        print("z:", z.shape)
+        z = torch.cat([z_a, z_p, z_diff, z_mul
+                    #    , z_abs, z_ratio
+                       ], dim=1)
+
+
 
         # predict time interval
         out = self.regressor(z)
 
         return out.squeeze(1)
 
-def train_regressor(model, train_loader, val_loader = None, epochs=10, lr=1e-4, weight_decay = 1e-4):
+def train_regressor(model, train_loader, val_loader = None, epochs=10, lr=1e-4, weight_decay = 1e-4, early_stopping = False):
     device = "cuda" if torch.cuda.is_available() else "cpu"
     model = model.to(device)
 
     loss_fn = nn.MSELoss()
+    mae_fn = nn.L1Loss()
     optimizer = torch.optim.Adam(model.parameters(), lr=lr, weight_decay=weight_decay)
 
     best_val_loss = float("inf")
     patience = 3
     counter = 0
     best_model_state = None
-
-    train_losses = []
-    val_losses = []
 
     train_curve = []
     val_curve = []
@@ -121,6 +122,8 @@ def train_regressor(model, train_loader, val_loader = None, epochs=10, lr=1e-4, 
     # -------------------- TRAIN --------------------
 
     for epoch in range(epochs):
+        train_losses = []
+        train_mae = []
 
         model.train()
 
@@ -134,20 +137,25 @@ def train_regressor(model, train_loader, val_loader = None, epochs=10, lr=1e-4, 
             optimizer.zero_grad()
 
             outputs = model(a_imgs, p_imgs)
-            loss = loss_fn(outputs, labels)
+            mse = loss_fn(outputs, labels)
+            mae = mae_fn(outputs, labels)
 
-            loss.backward()
+            mse.backward()
             optimizer.step()
 
-            train_losses.append(loss.item())
+            train_losses.append(mse.item())
+            train_mae.append(mae.item())
 
         avg_train_loss = sum(train_losses) / len(train_losses)
+        avg_train_mae = sum(train_mae) / len(train_mae)
         train_curve.append(avg_train_loss)
     
     # -------------------- VALIDATION --------------------
 
         if val_loader is not None:
             model.eval()
+            val_losses = []
+            val_mae = []
 
             with torch.no_grad():
                 for batch in val_loader:
@@ -156,16 +164,20 @@ def train_regressor(model, train_loader, val_loader = None, epochs=10, lr=1e-4, 
                     labels = batch["time_interval"].float().to(device)
 
                     outputs = model(a_imgs, p_imgs)
-                    loss = loss_fn(outputs, labels)
 
-                    val_losses.append(loss.item())
+                    mse = loss_fn(outputs, labels)
+                    mae = mae_fn(outputs, labels)
+
+                    val_losses.append(mse.item())
+                    val_mae.append(mae.item())
 
             avg_val_loss = sum(val_losses) / len(val_losses)
+            avg_val_mae = sum(val_mae) / len(val_mae)
             val_curve.append(avg_val_loss)
 
             print(
                     f"Epoch {epoch+1}: "
-                    f"train_loss={avg_train_loss:.4f}| val_loss={avg_val_loss:.4f}",
+                    f"train_MSE={avg_train_loss:.4f}, train_MAE={avg_train_mae:.4f}| val_MSE={avg_val_loss:.4f}, val_MAE={avg_val_mae:.4f}",
                     flush=True)
 
             # Early stopping
@@ -177,10 +189,10 @@ def train_regressor(model, train_loader, val_loader = None, epochs=10, lr=1e-4, 
             else:
                 counter += 1
                 print(f"No improvement ({counter}/{patience})")
-
-                if counter >= patience:
-                    print("Early stopping triggered")
-                    break
+                if early_stopping:
+                    if counter >= patience:
+                        print("Early stopping triggered")
+                        break
 
     # Loading the best model
     if best_model_state is not None:
@@ -198,13 +210,14 @@ def train_regressor(model, train_loader, val_loader = None, epochs=10, lr=1e-4, 
 def evaluate_regressor(model, test_loader, device=None, threshold=None):
     if device is None:
         device = "cuda" if torch.cuda.is_available() else "cpu"
-    
-    model.to(device)
+
+    model = model.to(device)
     model.eval()
 
-    loss_fn = nn.MSELoss()
-    test_losses = []
-    all_errors = []
+    sq_err_sum = 0.0
+    abs_err_sum = 0.0
+    n = 0
+
     results = []
 
     with torch.no_grad():
@@ -218,33 +231,33 @@ def evaluate_regressor(model, test_loader, device=None, threshold=None):
 
             outputs = model(a_imgs, p_imgs)
 
-            loss = loss_fn(outputs, labels)
-            test_losses.append(loss.item())
+            # errors
+            error = outputs - labels
+            abs_error = error.abs()
 
-            errors = torch.abs(outputs - labels)
+            # accumulate metrics
+            sq_err_sum += (error ** 2).item()
+            abs_err_sum += abs_error.item()
+            n += 1
 
-            for i in range(len(patient_ids)):
-                err = errors[i].item()
+            err_value = abs_error.item()
 
-                entry = {
-                    "patient_id": patient_ids[i],
-                    "date": dates[i],
-                    "true_interval": labels[i].item(),
-                    "pred_interval": outputs[i].item(),
-                    "error": err
-                }
+            if threshold is None or err_value > threshold:
+                results.append({
+                    "patient_id": patient_ids[0],
+                    "date": dates[0],
+                    "true_interval": labels.item(),
+                    "pred_interval": outputs.item(),
+                    "error": err_value
+                })
 
-                # store everything OR only large errors
-                if threshold is None or err > threshold:
-                    results.append(entry)
+    mse = sq_err_sum / n
+    mae = abs_err_sum / n
+    rmse = mse ** 0.5
 
-                all_errors.append(err)
-
-    avg_test_loss = sum(test_losses) / len(test_losses)
-    mae = sum(all_errors) / len(all_errors)
-
-    print(f"Test MSE: {avg_test_loss:.4f}", flush=True)
-    print(f"Test MAE: {mae:.4f} seconds", flush=True)
+    print(f"Test MAE:  {mae:.4f} seconds")
+    print(f"Test RMSE: {rmse:.4f} seconds")
+    print(f"Test MSE:  {mse:.4f}")
 
     return results
 
@@ -256,8 +269,8 @@ def main():
     # -------------------------------------------------------------------------------------------------------------
 
     path = "/mnt/rhea/data_private/IRBd23-231/GEPNETs/ARTINET/pairs_preprocessed"
-    batch_size = 2
-    epochs = 20
+    batch_size = 1
+    epochs = 10
     
     print(f"Training time interval estimation model", flush=True)
 
@@ -272,7 +285,6 @@ def main():
     model = TimeEstimator(embedding_dim=512)
 
     trained_model = train_regressor(model, train_loader, val_loader, epochs = epochs)
-
 
     # ------------------------------------------------- Evaluate --------------------------------------------------
     # -------------------------------------------------------------------------------------------------------------
@@ -293,6 +305,7 @@ def main():
     test_losses = evaluate_regressor(trained_model, test_loader)
     df = pd.DataFrame(test_losses)
     df.to_csv(f"/projects/net_contrast_classification/contrast_phase/DeepLClassifiers/estimated_intervals.csv", index=False)   
+
 
 if __name__ == "__main__":
     main()
