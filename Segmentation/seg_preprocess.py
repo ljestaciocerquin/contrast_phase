@@ -9,7 +9,7 @@ from monai.transforms import (Compose, LoadImage, Spacing, Resized, Spacingd, Cr
 from monai.data import MetaTensor
 import sys
 sys.path.append("/projects/net_contrast_classification/contrast_phase")
-from Preprocessing.cnn_preprocess import Preprocess3D
+from contrast_phase.Preprocessing.Contrast_data.cnn_preprocess import Preprocess3D
 from Radiomics.radiomics_pipeline import multi_channel
 from sklearn.model_selection import train_test_split
 import warnings
