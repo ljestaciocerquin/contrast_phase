@@ -9,3 +9,5 @@ Segmentation/cross_segment.py
 
 
 
+*.pth
+*.pt
