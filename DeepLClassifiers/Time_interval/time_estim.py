@@ -107,7 +107,7 @@ def train_regressor(model, train_loader, val_loader = None, epochs=10, lr=1e-4, 
     model = model.to(device)
 
     loss_fn = nn.MSELoss()
-    mae_fn = nn.L1Loss()
+    mae_fn = nn.L1Loss() # use this for optimizing  or check literature or experiment
     optimizer = torch.optim.Adam(model.parameters(), lr=lr, weight_decay=weight_decay)
 
     best_val_loss = float("inf")
