@@ -8,7 +8,7 @@ from monai.transforms import (Compose, LoadImage, Resized, Spacingd, ScaleIntens
 # from sklearn.model_selection import train_test_split
 import torch.nn.functional as F
 from monai.data import MetaTensor
-from cnn_preprocess import group_train_test_split
+from contrast_phase.Preprocessing.Contrast_data.cnn_preprocess import group_train_test_split
 
 import sys
 sys.path.append("/projects/net_contrast_classification/contrast_phase")
@@ -52,6 +52,8 @@ def create_paired_data(dataset):
         .filter(lambda g: required_phases.issubset(set(g["contrast"])))
     )
 
+    # save the dataframe
+    
     return paired_data
 
 def build_pairs(paired_data):
@@ -349,8 +351,8 @@ class PairedPreprocess:
                         "arterial_image": a_i,
                         "portal_image": p_i,
 
-                        # "arterial_mask": a_m,
-                        # "portal_mask": p_m,
+                        "arterial_mask": a_m,
+                        "portal_mask": p_m,
 
                         "time_interval": t
                     }, save_path)
@@ -389,6 +391,7 @@ class PairedPreprocess:
             )
             print(f"\nTest done! Saved {count}, skipped {skipped}", flush=True)
 
+
 def main():
     task_id = int(os.environ["SLURM_ARRAY_TASK_ID"])
 
@@ -400,6 +403,8 @@ def main():
     patient_ids, dates, a_files, p_files, a_organs, p_organs, intervals = files_load(
         data_dir, sample=None
     )
+
+    image_files = [f"{pid}_{date}" for pid, date in zip(patient_ids, dates)]
 
     organ_ids = [1,2,3,5,8,9,13,51,52,63,64,65,66]
 
@@ -417,11 +422,32 @@ def main():
         resize=(128,128,128)
     )
 
-    # -------- Split ONCE (pair-level) --------
-    train_idx, val_idx, test_idx = preprocessor.data_split(
-        a_files,   # <-- use paired index reference
-        patient_ids
-    )
+    # -------- Shared split paths --------
+    split_dir = "/projects/net_contrast_classification/contrast_phase/Preprocessing/paired_splits"
+    os.makedirs(split_dir, exist_ok=True)
+
+    train_path = os.path.join(split_dir, "train_idx.npy")
+    val_path   = os.path.join(split_dir, "val_idx.npy")
+    test_path  = os.path.join(split_dir, "test_idx.npy")
+
+    # -------- Create or load split --------
+    if not (os.path.exists(train_path) and os.path.exists(val_path) and os.path.exists(test_path)):
+        print("Creating split...", flush=True)
+
+        train_idx, val_idx, test_idx = preprocessor.data_split(image_files, patient_ids)
+
+        np.save(train_path, train_idx)
+        np.save(val_path, val_idx)
+        np.save(test_path, test_idx)
+
+    else:
+        print("Loading existing split...", flush=True)
+        train_idx = np.load(train_path)
+        val_idx   = np.load(val_path)
+        test_idx  = np.load(test_path)
+
+
+    # -------- Assign split --------
 
     split_map = {
         0: ("train", train_idx),
@@ -429,7 +455,6 @@ def main():
         2: ("test", test_idx),
     }
 
-    # -------- Assign split --------
     split_id = task_id % 3
     split_name, indices = split_map[split_id]
 
