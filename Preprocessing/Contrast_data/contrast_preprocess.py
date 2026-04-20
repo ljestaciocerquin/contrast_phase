@@ -142,7 +142,6 @@ def group_stratified_train_val_test_split(indices, labels, groups, test_size=0.2
 
     return train_idx, val_idx, test_idx
 
-
 class Preprocess3D:
     def __init__(self, dataset, organ_ids, pixdim=(1,1,1), resize = (128,128,128), augment = False):
         
@@ -357,8 +356,7 @@ class Preprocess3D:
 
         return counter, skipped
 
-def save_final_dataset(dataset, output_root):
-    output_root = "/mnt/rhea/data_private/IRBd23-231/GEPNETs/ARTINET/contrast_preprocessed"
+def save_final_dataset(dataset, output_root, save_root):
 
     dataset["output_dir"] = dataset["split"].apply(
         lambda x: os.path.join(output_root, x)
@@ -373,11 +371,9 @@ def save_final_dataset(dataset, output_root):
         axis=1
     )
 
-    dataset.to_csv("/projects/net_contrast_classification/contrast_phase/Preprocessing/Contrast_data/preprocessed_data.csv")
+    dataset.to_csv(save_root)
 
     return dataset
-    
-
 
 def main():
     task_id = int(os.environ["SLURM_ARRAY_TASK_ID"], 0)
@@ -403,9 +399,9 @@ def main():
     dataset["augment"] = ((dataset["split"] == "train") & (dataset["rare_class"] == 1)).astype(int)
 
     output_root = "/mnt/rhea/data_private/IRBd23-231/GEPNETs/ARTINET/contrast_preprocessed"
+    save_root = "/projects/net_contrast_classification/contrast_phase/Preprocessing/Contrast_data/preprocessed_data.csv"
 
-    dataset = save_final_dataset(dataset, output_root)
-
+    dataset = save_final_dataset(dataset, output_root, save_root)
 
     organ_ids = [1,2,3,5,8,9,13,51,52,63,64,65,66]
 
@@ -436,7 +432,8 @@ def main():
     my_indices = chunks[chunk_id]
 
     print(f"Processing {split_name} | chunk {chunk_id} | size {len(my_indices)}", flush=True)
-
+    
+    # -------- Output --------
     preprocessor.process_and_save(my_indices)
 
 
