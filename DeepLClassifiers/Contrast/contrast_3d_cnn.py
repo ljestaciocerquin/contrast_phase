@@ -9,12 +9,9 @@ from torch.nn import CrossEntropyLoss
 from sklearn.preprocessing import LabelEncoder
 from sklearn.metrics import accuracy_score, classification_report, confusion_matrix
 import torch.nn.functional as F
+import matplotlib.pyplot as plt
 import warnings
 warnings.filterwarnings("ignore", category=FutureWarning)
-# from monai.data import MetaTensor
-# from sklearn.utils.class_weight import compute_class_weight
-# from torch.utils.data import WeightedRandomSampler
-
 
 seed = 42
 torch.manual_seed(seed)
@@ -23,50 +20,71 @@ random.seed(seed)
 
 
 class PTDataset(Dataset):
-    def __init__(self, folder, label_name="contrast", encoder=None, sample=None):
-        self.files = sorted([
-            os.path.join(folder, f)
-            for f in os.listdir(folder)
-            if f.endswith(".pt")
-        ])
+    def __init__(self,
+                 csv_path,
+                 split,
+                 label_name="contrast",
+                 encoder=None,
+                 sample=None,
+                 filter_augmented=False):
 
-        if sample:
-            self.files = self.files[:sample]
-
+        self.df = pd.read_csv(csv_path)
+        self.split = split
         self.label_name = label_name
 
-        # -------- Load labels --------
-        self.raw_labels = []
-        self.keys = []
+        self.df = self.df[self.df["split"] == split].reset_index(drop=True)
 
-        for f in self.files:
-            data = torch.load(f, map_location="cpu") 
-            self.raw_labels.append(str(data[label_name]))
-            self.keys.append(data["key"])           
+        if sample:
+            self.df = self.df.iloc[:sample].reset_index(drop=True)
 
-        # -------- Encode labels --------
+        self._check_paths()
+
+        # ---------------- label encoding (GLOBAL) ----------------
+
         if encoder is None:
             self.le = LabelEncoder()
-            self.le.fit(self.raw_labels)
+            self.le.fit(self.df[self.label_name].astype(str))
         else:
             self.le = encoder
 
-        self.encoded_labels = self.le.transform(self.raw_labels)
+        self.df["encoded_label"] = self.le.transform(
+            self.df[self.label_name].astype(str)
+        )
+
+        # ---------------- optional filtering ----------------
+        if filter_augmented:
+            self._filter_augmented()
+
+        # ADD AUGMENTED TRAIN IMAGES INSTEAD OF FILTERING
+
+    def _check_paths(self):
+        mask = self.df["output_path"].apply(os.path.exists)
+
+        missing = self.df[~mask]
+        if len(missing) > 0:
+            print(f"[WARNING] Missing files: {len(missing)}")
+            print(missing["output_path"].head().tolist())
+
+        self.df = self.df[mask].reset_index(drop=True)
+
+    def _filter_augmented(self):
+        mask = self.df["augment"] == 0
+        self.df = self.df[mask].reset_index(drop=True)
+        print(f"After filtering augmented images: {len(self.df)}")
 
     def __len__(self):
-        return len(self.files)
+        return len(self.df)
 
     def __getitem__(self, idx):
-        data = torch.load(self.files[idx], map_location="cpu")
+        row = self.df.iloc[idx]
 
-        image = data["image"]
-
+        data = torch.load(row["output_path"], map_location="cpu")
 
         return {
-            "key": self.keys[idx],                          
-            "image": image,
-            "label": torch.tensor(self.encoded_labels[idx], dtype=torch.long)
-            }
+            "key": row["MatchKey"],
+            "image": torch.as_tensor(data["image"], dtype=torch.float32),
+            "label": torch.tensor(row["encoded_label"], dtype=torch.long),
+        }
     
 class FocalLoss(nn.Module):
     def __init__(self, alpha=None, gamma=2.0, reduction="mean"):
@@ -97,7 +115,7 @@ class FocalLoss(nn.Module):
         else:
             return loss        
 
-def train_cnn(model, train_loader, weights=None, val_loader=None, epochs=10, lr=1e-4, weight_decay = 1e-4, loss = None):
+def train_cnn(model, train_loader, weights=None, val_loader=None, epochs=10, lr=1e-4, weight_decay = 1e-4, loss = None, early_stopping = None):
     device = "cuda" if torch.cuda.is_available() else "cpu"
     model = model.to(device)
 
@@ -109,9 +127,11 @@ def train_cnn(model, train_loader, weights=None, val_loader=None, epochs=10, lr=
     optimizer = torch.optim.Adam(model.parameters(), lr=lr, weight_decay=weight_decay)
 
     best_val_loss = float("inf")
-    patience = 5
     counter = 0
     best_model_state = None
+
+    train_losses = []
+    val_losses = []
 
     for epoch in range(epochs):
 
@@ -137,7 +157,7 @@ def train_cnn(model, train_loader, weights=None, val_loader=None, epochs=10, lr=
 
 
             train_loss += loss.item()
-            preds = torch.argmax(outputs, dim=1)            # outputs = logits => pick the highest logit as the class label
+            preds = torch.argmax(outputs, dim=1)                        # outputs = logits => pick the highest logit as the class label
             train_correct += (preds == labels).sum().item()
             train_total += labels.size(0)
 
@@ -147,6 +167,7 @@ def train_cnn(model, train_loader, weights=None, val_loader=None, epochs=10, lr=
             )
 
         avg_train_loss = train_loss / len(train_loader)
+        train_losses.append(avg_train_loss)
         train_acc = train_correct / train_total if train_total else 0.0
 
 
@@ -172,6 +193,7 @@ def train_cnn(model, train_loader, weights=None, val_loader=None, epochs=10, lr=
                     val_total += labels.size(0)
 
             avg_val_loss = val_loss / len(val_loader)
+            val_losses.append(avg_val_loss)
             val_acc = val_correct / val_total if val_total else 0.0
 
             print(
@@ -189,9 +211,9 @@ def train_cnn(model, train_loader, weights=None, val_loader=None, epochs=10, lr=
                 print("New best model")
             else:
                 counter += 1
-                print(f"No improvement ({counter}/{patience})")
+                print(f"No improvement ({counter})")
 
-                if counter >= patience:
+                if early_stopping is not None and counter >= early_stopping:
                     print("Early stopping triggered")
                     break
 
@@ -199,7 +221,7 @@ def train_cnn(model, train_loader, weights=None, val_loader=None, epochs=10, lr=
     if best_model_state is not None:
         model.load_state_dict(best_model_state)
 
-    return model
+    return model, train_losses, val_losses
 
 def evaluate_model(model, test_loader, device=None, class_names=None):
     """
@@ -338,9 +360,10 @@ def main():
     # ------------------------------------------------- Load data -------------------------------------------------
     # -------------------------------------------------------------------------------------------------------------
 
-    path = "/mnt/rhea/data_private/IRBd23-231/GEPNETs/ARTINET/contrast_preprocessed"
+    data_dir = "/projects/net_contrast_classification/contrast_phase/Preprocessing/Contrast_data/preprocessed_data.csv"
+
     batch_size = 2
-    epochs = 20
+    epochs = 50
 
     label_map = {0: "contrast", 1: "phase"}
     task_id = int(os.environ.get("SLURM_ARRAY_TASK_ID", 0))
@@ -348,10 +371,12 @@ def main():
 
     print(f"Training 3D CNN for contrast phase classification with label: {label_name}", flush=True)
 
-    train_dataset = PTDataset(f"{path}/train", label_name=label_name, encoder=None)
+
+    train_dataset = PTDataset(data_dir, split = "train", label_name=label_name, encoder=None)
     le = train_dataset.le
-    val_dataset = PTDataset(f"{path}/val", label_name=label_name, encoder=le)
-    test_dataset = PTDataset(f"{path}/test", label_name=label_name, encoder=le)
+    val_dataset = PTDataset(data_dir, split = "val", label_name=label_name, encoder=le)
+    test_dataset = PTDataset(data_dir, split = "test", label_name=label_name, encoder=le)
+
 
     train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True, num_workers = 4)
     val_loader = DataLoader(val_dataset, batch_size=batch_size, shuffle=False, num_workers = 4)
@@ -378,36 +403,46 @@ def main():
             pretrained = False
     )
 
-    trained_model = train_cnn(model,
-                            train_loader,
-                            weights = None,
-                            val_loader=val_loader,
-                            epochs = epochs,
-                            loss = FocalLoss())
+    trained_model, train_losses, val_losses = train_cnn(model,
+                                                        train_loader,
+                                                        weights = None,
+                                                        val_loader=val_loader,
+                                                        epochs = epochs,
+                                                        loss = FocalLoss())
     
 
-    # ------------------------------------------------- Evaluate --------------------------------------------------
-    # -------------------------------------------------------------------------------------------------------------
-        
+    save_path = "/projects/net_contrast_classification/contrast_phase/DeepLClassifiers/Contrast"
+    os.makedirs(save_path, exist_ok=True)
+
+    if train_losses is not None and val_losses is not None:
+        plt.plot(train_losses, label="train")
+        plt.plot(val_losses, label="val")
+        plt.xlabel("Epoch")
+        plt.ylabel("Loss")
+        plt.legend()
+        plt.savefig(f"{save_path}/{label_name}_loss_curve.png") 
+
+
     # Saving the trained model
-    save_path = f"/projects/net_contrast_classification/contrast_phase/DeepLClassifiers/{label_name}_trained_model.pth"
+    save_path_model = f"{save_path}/{label_name}_trained_model.pth"
 
     try:
         # ensure directory exists
-        os.makedirs(os.path.dirname(save_path), exist_ok=True)
+        os.makedirs(os.path.dirname(save_path_model), exist_ok=True)
 
-        torch.save(trained_model.state_dict(), save_path)
-        print(f"Model saved successfully at: {save_path}", flush=True)
+        torch.save(trained_model.state_dict(), save_path_model)
+        print(f"Model saved successfully at: {save_path_model}", flush=True)
 
     except Exception as e:
         print(f"Error saving model: {e}", flush=True)
 
-    
-    # Evaluation 
+    # ------------------------------------------------- Evaluate --------------------------------------------------
+    # -------------------------------------------------------------------------------------------------------------
+        
     _, misclassifications = evaluate_model(trained_model, test_loader, class_names=le.classes_)
 
     df = pd.DataFrame(misclassifications)
-    df.to_csv(f"/projects/net_contrast_classification/contrast_phase/DeepLClassifiers/{label_name}_misclassifications.csv", index=False)
+    df.to_csv(f"{save_path}/{label_name}_misclassifications.csv", index=False)
 
 
 if __name__ == "__main__":
