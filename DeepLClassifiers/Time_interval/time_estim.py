@@ -12,6 +12,9 @@ from monai.networks.nets import resnet10
 from tqdm import tqdm
 import torch.nn.functional as F
 from typing import Optional
+import sys
+sys.path.append("/projects/net_contrast_classification/contrast_phase")
+from DeepLClassifiers.Contrast.contrast_3d_cnn import Small3DCNN_v2
 
 import warnings
 warnings.filterwarnings("ignore", category=FutureWarning)
@@ -72,7 +75,7 @@ class PairDataset(Dataset):
             "time_interval": torch.tensor(row["time_interval"], dtype=torch.float32),
         }
 
-class TimeEstimator(nn.Module):
+class DeepTimeEstimator(nn.Module):
     def __init__(self, embedding_dim=512):
         super().__init__()
 
@@ -88,13 +91,20 @@ class TimeEstimator(nn.Module):
 
         # Regression head
         self.regressor = nn.Sequential(
-            nn.Linear(embedding_dim * 3 + 1, 256),
-            # nn.LayerNorm(256),
+            nn.Linear(embedding_dim * 3 + 1, 1024),  # add layers to slowly reduce dimensionallity 
             nn.ReLU(),
-            nn.Dropout(0.3),
+            nn.Dropout(0.2),
+
+            nn.Linear(1024, 512),
+            nn.ReLU(),
+            nn.Dropout(0.2),
+
+            nn.Linear(512, 256),
+            nn.ReLU(),
+
             nn.Linear(256, 64),
-            # nn.LayerNorm(64),
             nn.ReLU(),
+
             nn.Linear(64, 1)
         )
 
@@ -116,13 +126,9 @@ class TimeEstimator(nn.Module):
         z_p = F.normalize(z_p, dim=1)
 
 
-        # feature interactions (important)
-        z_diff = z_p - z_a                  # captures the changing contrast dynamics from arterial -> portal
-        # z_mul = z_p * z_a                   # captures the correlation between different vessels' contrast - separate static vs dynamic features
-        # z_abs = torch.abs(z_diff)           # stabilizes the training -> but we care about "direction"?
-        # z_ratio = z_p / (z_a + 1e-6)
-
-        z_cos = torch.sum(z_a * z_p, dim=1, keepdim=True)
+        # feature interactions
+        z_diff = z_p - z_a                                           # captures the changing contrast dynamics from arterial -> portal
+        z_cos = F.cosine_similarity(z_a, z_p, dim=1, keepdim=True)   # captures the similarity between arterial and portal respresentations
 
         # concatenate everything
         z = torch.cat([z_a, z_p, z_diff, z_cos], dim=1)
@@ -134,13 +140,66 @@ class TimeEstimator(nn.Module):
 
         return out.squeeze(1)
 
+
+# class RadiomicsTimeEstimator():
+
+
+class SeqTimeEstimator():
+    def __init__(self, feature_dim =128, hidden_size=128, num_layers=1):
+        super().__init__()
+
+        self.feature_dim = feature_dim
+
+        # Encoder 
+        self.cnn = Small3DCNN_v2(num_classes=feature_dim)
+
+        # --- LSTM ---
+        self.lstm = nn.LSTM(
+            input_size=feature_dim,
+            hidden_size=hidden_size,
+            num_layers=num_layers,
+            batch_first=True
+        )
+
+        # --- Regression head ---
+        self.fc = nn.Linear(hidden_size, 1)
+
+
+    def forward(self, x):
+        # x: (batch size, time points (arterial and portal = 2), channels, D, H, W)
+        B, T, C, D, H, W = x.shape
+
+        # merge batch and time
+        x = x.view(B * T, C, D, H, W)
+
+        # CNN features
+        features = self.cnn(x)  # (B*T, feature_dim)
+
+        # reshape back
+        features = features.view(B, T, -1)
+
+        # LSTM
+        lstm_out, _ = self.lstm(features)
+
+        # last timestep
+        out = lstm_out[:, -1, :]
+
+        # regression
+        out = self.fc(out)
+
+        return out.squeeze(1)
+
+
+
+
 def train_regressor(model, 
                     train_loader, 
                     val_loader = None, 
                     epochs=10,
                     lr=1e-4, 
                     weight_decay = 1e-4, 
-                    early_stopping: Optional[int] = None):
+                    early_stopping: Optional[int] = None,
+                    error_weights = 0.3):
     
 
     device = "cuda" if torch.cuda.is_available() else "cpu"
@@ -175,10 +234,14 @@ def train_regressor(model,
 
             outputs = model(a_imgs, p_imgs)
             error = torch.abs(outputs - labels)
-            weights = torch.ones_like(labels)
-            weights[(labels >= 30) & (labels <= 40)] = 3.0
 
-            loss = (weights * error).mean()
+            if error_weights:
+                weights = torch.ones_like(labels)
+                weights[(labels >= 30) & (labels <= 40)] = error_weights
+                loss = (weights * error).mean()
+            else:
+                loss = error.mean()
+
             loss.backward()
             optimizer.step()
 
@@ -231,11 +294,23 @@ def train_regressor(model,
                     print("Early stopping triggered")
                     break
 
+        if train_curve is not None and val_curve is not None:
+            plt.clf()  
+            plt.plot(train_curve, label="train MAE")
+            plt.plot(val_curve, label="val MAE")
+            plt.xlabel("Epoch")
+            plt.ylabel("Loss")
+            plt.title(f"Time Interval Estimation with {model.encoder.__class__.__name__}")
+            plt.legend()
+            plt.pause(0.01)
+            plt.savefig(f"/projects/net_contrast_classification/contrast_phase/DeepLClassifiers/Time_interval/training_curve_filters.png") 
+
+
     # Loading the best model
     if best_model_state is not None:
         model.load_state_dict(best_model_state)
 
-    return model, train_curve, val_curve
+    return model
 
 def evaluate_regressor(model,
                        test_loader, 
@@ -305,7 +380,7 @@ def main():
     data_dir = "/projects/net_contrast_classification/contrast_phase/Preprocessing/Time_interval_data/paired_preprocessed_data.csv"
 
     batch_size = 1
-    epochs = 20
+    epochs = 50
     
     print(f"Training time interval estimation model with weights for extreme intervals and filtering", flush=True)
 
@@ -317,25 +392,17 @@ def main():
     val_loader = DataLoader(val_dataset, batch_size=batch_size, shuffle=False)
     test_loader = DataLoader(test_dataset, batch_size=batch_size, shuffle=False)
 
-    model = TimeEstimator(embedding_dim=512)
+    model = DeepTimeEstimator(embedding_dim=512)
 
-    trained_model, train_curve, val_curve  = train_regressor(model,
-                                                             train_loader,
-                                                             val_loader,
-                                                             epochs = epochs,
-                                                             early_stopping=5)
+    trained_model = train_regressor(model,
+                                        train_loader,
+                                        val_loader,
+                                        epochs = epochs,
+                                        early_stopping=10,
+                                        error_weights=None)
 
     save_path = "/projects/net_contrast_classification/contrast_phase/DeepLClassifiers/Time_interval"
     os.makedirs(save_path, exist_ok=True)
-
-    if train_curve is not None and val_curve is not None:
-        plt.plot(train_curve, label="train")
-        plt.plot(val_curve, label="val")
-        plt.xlabel("Epoch")
-        plt.ylabel("Loss")
-        plt.legend()
-        plt.savefig(f"{save_path}/training_curve_filters.png") 
-
 
     # Saving the trained model
     save_path_model = f"{save_path}/trained_model_filters.pth"
