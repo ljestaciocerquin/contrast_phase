@@ -4,12 +4,13 @@ import numpy as np
 import torch.nn as nn
 from tqdm import tqdm
 from monai.data import Dataset, DataLoader
-from monai.networks.nets import resnet18, resnet10
+from monai.networks.nets import resnet18, resnet10, UNet
 from torch.nn import CrossEntropyLoss
 from sklearn.preprocessing import LabelEncoder
 from sklearn.metrics import accuracy_score, classification_report, confusion_matrix
 import torch.nn.functional as F
 import matplotlib.pyplot as plt
+import glob
 import warnings
 warnings.filterwarnings("ignore", category=FutureWarning)
 
@@ -26,7 +27,7 @@ class PTDataset(Dataset):
                  label_name="contrast",
                  encoder=None,
                  sample=None,
-                 filter_augmented=False):
+                 add_augmented=False):
 
         self.df = pd.read_csv(csv_path)
         self.split = split
@@ -38,6 +39,9 @@ class PTDataset(Dataset):
             self.df = self.df.iloc[:sample].reset_index(drop=True)
 
         self._check_paths()
+
+        original_len = len(self.df)
+
 
         # ---------------- label encoding (GLOBAL) ----------------
 
@@ -51,11 +55,15 @@ class PTDataset(Dataset):
             self.df[self.label_name].astype(str)
         )
 
-        # ---------------- optional filtering ----------------
-        if filter_augmented:
-            self._filter_augmented()
+        # ---------------- optional inclusion of augmented images ----------------
+        if add_augmented and self.split == "train":
+            self._include_augmentations()
+            self._check_paths()
+            print(f"[INFO] Dataset expanded: {original_len} -> {len(self.df)}")
+        else:
+            print(f"[INFO] {str.capitalize(split)} dataset size: {original_len}")
 
-        # ADD AUGMENTED TRAIN IMAGES INSTEAD OF FILTERING
+
 
     def _check_paths(self):
         mask = self.df["output_path"].apply(os.path.exists)
@@ -67,10 +75,31 @@ class PTDataset(Dataset):
 
         self.df = self.df[mask].reset_index(drop=True)
 
-    def _filter_augmented(self):
-        mask = self.df["augment"] == 0
-        self.df = self.df[mask].reset_index(drop=True)
-        print(f"After filtering augmented images: {len(self.df)}")
+    def _include_augmentations(self):                       # ADDS ONLY RARE CLASS AUGMENTED IMAGES AND IGNORES THE AUGMENTATIONS OF THE COMMON CLASS IMAGES
+        new_rows = []
+
+        for _, row in self.df.iterrows():
+            base_path = row["output_path"]
+
+            # always include original
+            new_rows.append(row.copy())
+
+            # only for train split and augment == 1
+            if row.get("augment", 0) == 1:
+                base_no_ext = os.path.splitext(base_path)[0]
+
+                aug_paths = glob.glob(base_no_ext + "_aug*.pt")
+                if len(aug_paths) == 0:
+                    print(f"[WARNING] No augmentations found for {base_path}")
+
+                for aug_path in aug_paths:
+                    if os.path.exists(aug_path):  # optional (glob already ensures this)
+                        new_row = row.copy()
+                        new_row["output_path"] = aug_path
+                        new_rows.append(new_row)
+
+        self.df = pd.DataFrame(new_rows).reset_index(drop=True)
+        
 
     def __len__(self):
         return len(self.df)
@@ -115,7 +144,7 @@ class FocalLoss(nn.Module):
         else:
             return loss        
 
-def train_cnn(model, train_loader, weights=None, val_loader=None, epochs=10, lr=1e-4, weight_decay = 1e-4, loss = None, early_stopping = None):
+def train_cnn(model, train_loader, weights=None, val_loader=None, epochs=10, lr=1e-4, weight_decay = 1e-4, loss = None, early_stopping = None, task = "contrast"):
     device = "cuda" if torch.cuda.is_available() else "cpu"
     model = model.to(device)
 
@@ -216,12 +245,24 @@ def train_cnn(model, train_loader, weights=None, val_loader=None, epochs=10, lr=
                 if early_stopping is not None and counter >= early_stopping:
                     print("Early stopping triggered")
                     break
+        
+        if train_losses is not None and val_losses is not None:
+            plt.clf()
+            plt.plot(train_losses, label="train loss")
+            plt.plot(val_losses, label="val loss")
+            plt.xlabel("Epoch")
+            plt.ylabel("Loss")
+            plt.title(f"{str.capitalize(task)} Classification with {model.__class__.__name__}")
+            plt.legend()
+            plt.pause(0.01)
+            plt.savefig(f"/projects/net_contrast_classification/contrast_phase/DeepLClassifiers/Contrast/{task}_loss_curve.png") 
 
     # Loading the best model
     if best_model_state is not None:
         model.load_state_dict(best_model_state)
 
-    return model, train_losses, val_losses
+
+    return model
 
 def evaluate_model(model, test_loader, device=None, class_names=None):
     """
@@ -315,43 +356,62 @@ class Small3DCNN(nn.Module):
         x = x.view(x.size(0), -1)
         return self.classifier(x)
 
-class Small3DCNN_1(nn.Module):
-    def __init__(self, num_classes=3):
+class Small3DCNN_v2(nn.Module):
+    def __init__(self, num_classes=6):
         super().__init__()
 
-        # First convolutional block
-        self.conv1 = nn.Sequential(
-            nn.Conv3d(1, 16, kernel_size=3, padding=1),
-            nn.BatchNorm3d(16),
-            nn.ReLU(),
-            nn.MaxPool3d(2)
+        def block(in_c, out_c):
+            return nn.Sequential(
+                nn.Conv3d(in_c, out_c, 3, padding=1),
+                nn.InstanceNorm3d(out_c, affine=True),
+                nn.ReLU(inplace=True),
+                nn.Conv3d(out_c, out_c, 3, padding=1),
+                nn.InstanceNorm3d(out_c, affine=True),
+                nn.ReLU(inplace=True),
+                nn.Dropout(0.2),
+                nn.MaxPool3d(2)
+                )
+
+        self.features = nn.Sequential(
+            block(1, 16),
+            block(16, 32),
+            block(32, 64),
+            block(64, 128),  
         )
 
-        # Second convolutional block
-        self.conv2 = nn.Sequential(
-            nn.Conv3d(16, 32, kernel_size=3, padding=1),
-            nn.BatchNorm3d(32),
-            nn.ReLU(),
-            nn.MaxPool3d(2)
-        )
-
-        # AdaptiveAvgPool3d(1) adaptively collapses spatial dims
-        self.adaptive_pool = nn.AdaptiveAvgPool3d(1)
-
-        # Classifier
-        self.classifier = nn.Linear(32, num_classes)
+        self.pool = nn.AdaptiveAvgPool3d(1)
+        self.classifier = nn.Linear(128, num_classes)
 
     def forward(self, x):
-        x = self.conv1(x)
-        x = self.conv2(x)
+        x = self.features(x)
+        x = self.pool(x)
+        x = x.view(x.size(0), -1)
+        return self.classifier(x)
 
-        # flatten the feature map
-        x = self.adaptive_pool(x)  # shape: (batch, 32, 1, 1, 1)
-        x = torch.flatten(x, 1)    # shape: (batch, 32)
+class UNetClassifier(nn.Module):
+    def __init__(self, num_classes):
+        super().__init__()
 
-        out = self.classifier(x)
-        return out
+        self.unet = UNet(
+            spatial_dims=3,
+            in_channels=1,
+            out_channels=16,                    # feature maps, not classes
+            channels=(16, 32, 64, 128, 256),
+            strides=(2, 2, 2, 2)
+        )
+
+        self.pool = nn.AdaptiveAvgPool3d(1)
+
+        self.fc = nn.Linear(16, num_classes)
+
+    def forward(self, x):
+        x = self.unet(x)          # (B, 16, D, H, W)
+        x = self.pool(x)          # (B, 16, 1, 1, 1)
+        x = x.view(x.size(0), -1) # (B, 16)
+        return self.fc(x)
     
+
+
 def main():
 
     if torch.cuda.is_available():
@@ -372,7 +432,9 @@ def main():
     print(f"Training 3D CNN for contrast phase classification with label: {label_name}", flush=True)
 
 
-    train_dataset = PTDataset(data_dir, split = "train", label_name=label_name, encoder=None)
+    add_augment = True if label_name == "phase" else False
+
+    train_dataset = PTDataset(data_dir, split = "train", label_name=label_name, encoder=None, add_augmented=add_augment)
     le = train_dataset.le
     val_dataset = PTDataset(data_dir, split = "val", label_name=label_name, encoder=le)
     test_dataset = PTDataset(data_dir, split = "test", label_name=label_name, encoder=le)
@@ -390,38 +452,33 @@ def main():
 
     # --------------------------------------------------- Train ---------------------------------------------------
     # -------------------------------------------------------------------------------------------------------------
-    print("Model: ResNet", flush=True)
+    print("Model: Small3DCNN", flush=True)
 
     # Simple 3D CNN trained from scratch
-    # model = Small3DCNN(num_classes=len(le.classes_))
+    model = Small3DCNN_v2(num_classes=len(le.classes_))
 
 
-    model = resnet10(
-            spatial_dims=3,
-            n_input_channels=1,   
-            num_classes=len(le.classes_),
-            pretrained = False
-    )
+    # model = resnet10(
+    #         spatial_dims=3,
+    #         n_input_channels=1,   
+    #         num_classes=len(le.classes_),
+    #         pretrained = False
+    # )
 
-    trained_model, train_losses, val_losses = train_cnn(model,
-                                                        train_loader,
-                                                        weights = None,
-                                                        val_loader=val_loader,
-                                                        epochs = epochs,
-                                                        loss = FocalLoss())
+    # model = UNetClassifier(num_classes=len(le.classes_))
+
+    trained_model = train_cnn(model,
+                                    train_loader,
+                                    weights = None,
+                                    val_loader=val_loader,
+                                    epochs = epochs,
+                                    loss = FocalLoss() if label_name == "phase" else None,
+                                    early_stopping=10,
+                                    task = label_name)
     
 
     save_path = "/projects/net_contrast_classification/contrast_phase/DeepLClassifiers/Contrast"
     os.makedirs(save_path, exist_ok=True)
-
-    if train_losses is not None and val_losses is not None:
-        plt.plot(train_losses, label="train")
-        plt.plot(val_losses, label="val")
-        plt.xlabel("Epoch")
-        plt.ylabel("Loss")
-        plt.legend()
-        plt.savefig(f"{save_path}/{label_name}_loss_curve.png") 
-
 
     # Saving the trained model
     save_path_model = f"{save_path}/{label_name}_trained_model.pth"
