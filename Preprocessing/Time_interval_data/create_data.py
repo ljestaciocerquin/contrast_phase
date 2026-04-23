@@ -127,7 +127,7 @@ def load_and_split(data_dir):
                                                                     np.arange(len(paired_data)),
                                                                     labels=pd.to_datetime(paired_data["ExamDate"]).dt.year,
                                                                     groups=paired_data["SubjectKeyRadiology"]
-                                                                        )
+                                                                    )
     paired_data = paired_data.reset_index(drop=True)
 
     paired_data["split"] = "unassigned"
