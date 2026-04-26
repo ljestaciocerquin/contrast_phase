@@ -14,7 +14,7 @@ import torch.nn.functional as F
 from typing import Optional
 import sys
 sys.path.append("/projects/net_contrast_classification/contrast_phase")
-from DeepLClassifiers.Contrast.contrast_3d_cnn import Small3DCNN_v2
+from DeepLClassifiers.Contrast.contrast_models import CNN8, ResNet
 
 import warnings
 warnings.filterwarnings("ignore", category=FutureWarning)
@@ -75,19 +75,97 @@ class PairDataset(Dataset):
             "time_interval": torch.tensor(row["time_interval"], dtype=torch.float32),
         }
 
+class CNN8_encoder(nn.Module):
+    def __init__(self, dropout_rate=0.2):
+        super().__init__()
+
+        def block(in_c, out_c):
+            return nn.Sequential(
+                nn.Conv3d(in_c, out_c, 3, padding=1),
+                nn.InstanceNorm3d(out_c, affine=True),
+                nn.ReLU(inplace=True),
+                nn.Conv3d(out_c, out_c, 3, padding=1),
+                nn.InstanceNorm3d(out_c, affine=True),
+                nn.ReLU(inplace=True),
+                nn.Dropout(dropout_rate),
+                nn.MaxPool3d(2)
+            )
+
+        self.features = nn.Sequential(
+            block(1, 16),
+            block(16, 32),
+            block(32, 64),
+            block(64, 128),
+        )
+
+        self.pool = nn.AdaptiveAvgPool3d(1)
+
+    def forward(self, x):
+        x = self.features(x)
+        x = self.pool(x)
+        x = x.view(x.size(0), -1)   # [B, 128]
+        return x
+    
 class DeepTimeEstimator(nn.Module):
-    def __init__(self, embedding_dim=512):
+    def __init__(self, encoder, embedding_dim, t_min=0.0, t_max=60.0):
+        super().__init__()
+
+        self.encoder = encoder
+        self.time_head = nn.Linear(embedding_dim, 1)
+
+        self.t_min = t_min
+        self.t_max = t_max
+
+    def encode(self, x):
+        return self.encoder(x)   # nothing else
+
+    def forward(self, a_img, p_img):
+
+        z_a = self.encode(a_img)
+        z_p = self.encode(p_img)
+
+        z_a = F.normalize(z_a, dim=1)
+        z_p = F.normalize(z_p, dim=1)
+
+        s_a = self.time_head(z_a)
+        s_p = self.time_head(z_p)
+
+        delta = s_p - s_a
+        out = torch.sigmoid(delta)
+
+        time = out * (self.t_max - self.t_min) + self.t_min
+
+        return time.squeeze(1)
+    
+
+
+    def forward(self, a_img, p_img):
+        # initial shape of inputs = [B, 1, D, H, W]
+        
+        # encode both phases => Siamese modelling 
+        z_a = self.encode(a_img)            # [B, 512]
+        z_p = self.encode(p_img)            # [B, 512]
+
+        z_a = F.normalize(z_a, dim=1)
+        z_p = F.normalize(z_p, dim=1)
+
+        s_a = self.time_head(z_a)   # [B, 1]
+        s_p = self.time_head(z_p)   # [B, 1]
+
+        delta = s_p - s_a           # temporal difference
+        out = torch.sigmoid(delta)  # [0,1]
+
+        # convert back to time
+        time = out * (self.t_max - self.t_min) + self.t_min
+
+        return time.squeeze(1)
+    
+class DeepTimeRegressor(nn.Module):
+    def __init__(self, encoder, embedding_dim=512):
         super().__init__()
 
         # Encoder 
-        self.encoder = resnet10(
-            spatial_dims=3,
-            n_input_channels=1,
-            num_classes=1  # dummy to keep structure valid => linear/classification layer [512, 1]
-        )
-
-        # Remove classification head
-        self.encoder.fc = nn.Identity()         # the encoder now returns [B, 512, D, H, W]
+        self.encoder = encoder
 
         # Regression head
         self.regressor = nn.Sequential(
@@ -112,94 +190,93 @@ class DeepTimeEstimator(nn.Module):
     def encode(self, x):
         x = self.encoder(x)              # already [B, 512]
         if x.dim() > 2:
-            x = x.view(x.size(0), -1)    # safety fallback
+            x = torch.flatten(x, start_dim=1)
+
         return x
 
     def forward(self, a_img, p_img):
         # initial shape of inputs = [B, 1, D, H, W]
         
-        # encode both phases
+        # encode both phases => Siamese modelling 
         z_a = self.encode(a_img)            # [B, 512]
         z_p = self.encode(p_img)            # [B, 512]
 
         z_a = F.normalize(z_a, dim=1)
         z_p = F.normalize(z_p, dim=1)
 
-
         # feature interactions
         z_diff = z_p - z_a                                           # captures the changing contrast dynamics from arterial -> portal
         z_cos = F.cosine_similarity(z_a, z_p, dim=1, keepdim=True)   # captures the similarity between arterial and portal respresentations
 
-        # concatenate everything
+        # concatenate
         z = torch.cat([z_a, z_p, z_diff, z_cos], dim=1)
-
-
 
         # predict time interval
         out = self.regressor(z)
 
         return out.squeeze(1)
 
-
 # class RadiomicsTimeEstimator():
 
 
-class SeqTimeEstimator():
-    def __init__(self, feature_dim =128, hidden_size=128, num_layers=1):
-        super().__init__()
+# class SeqTimeEstimator():
+#     def __init__(self, feature_dim =128, hidden_size=128, num_layers=1):
+#         super().__init__()
 
-        self.feature_dim = feature_dim
+#         self.feature_dim = feature_dim
 
-        # Encoder 
-        self.cnn = Small3DCNN_v2(num_classes=feature_dim)
+#         # Encoder 
+#         self.cnn = Small3DCNN_v2(num_classes=feature_dim)
 
-        # --- LSTM ---
-        self.lstm = nn.LSTM(
-            input_size=feature_dim,
-            hidden_size=hidden_size,
-            num_layers=num_layers,
-            batch_first=True
-        )
+#         # --- LSTM ---
+#         self.lstm = nn.LSTM(
+#             input_size=feature_dim,
+#             hidden_size=hidden_size,
+#             num_layers=num_layers,
+#             batch_first=True
+#         )
 
-        # --- Regression head ---
-        self.fc = nn.Linear(hidden_size, 1)
+#         # --- Regression head ---
+#         self.fc = nn.Linear(hidden_size, 1)
 
 
-    def forward(self, x):
-        # x: (batch size, time points (arterial and portal = 2), channels, D, H, W)
-        B, T, C, D, H, W = x.shape
+#     def forward(self, x):
+#         # x: (batch size, time points (arterial and portal = 2), channels, D, H, W)
+#         B, T, C, D, H, W = x.shape
 
-        # merge batch and time
-        x = x.view(B * T, C, D, H, W)
+#         # merge batch and time
+#         x = x.view(B * T, C, D, H, W)
 
-        # CNN features
-        features = self.cnn(x)  # (B*T, feature_dim)
+#         # CNN features
+#         features = self.cnn(x)  # (B*T, feature_dim)
 
-        # reshape back
-        features = features.view(B, T, -1)
+#         # reshape back
+#         features = features.view(B, T, -1)
 
-        # LSTM
-        lstm_out, _ = self.lstm(features)
+#         # LSTM
+#         lstm_out, _ = self.lstm(features)
 
-        # last timestep
-        out = lstm_out[:, -1, :]
+#         # last timestep
+#         out = lstm_out[:, -1, :]
 
-        # regression
-        out = self.fc(out)
+#         # regression
+#         out = self.fc(out)
 
-        return out.squeeze(1)
+#         return out.squeeze(1)
 
 
 
 
 def train_regressor(model, 
+                    encoder_name,
                     train_loader, 
                     val_loader = None, 
                     epochs=10,
                     lr=1e-4, 
                     weight_decay = 1e-4, 
                     early_stopping: Optional[int] = None,
-                    error_weights = 0.3):
+                    error_weights = 0.3
+                    ):
     
 
     device = "cuda" if torch.cuda.is_available() else "cpu"
@@ -295,6 +372,9 @@ def train_regressor(model,
                     break
 
         if train_curve is not None and val_curve is not None:
+            save_path = "/projects/net_contrast_classification/contrast_phase/DeepLClassifiers/Time_interval/results"
+            os.makedirs(save_path, exist_ok=True)
+
             plt.clf()  
             plt.plot(train_curve, label="train MAE")
             plt.plot(val_curve, label="val MAE")
@@ -303,7 +383,7 @@ def train_regressor(model,
             plt.title(f"Time Interval Estimation with {model.encoder.__class__.__name__}")
             plt.legend()
             plt.pause(0.01)
-            plt.savefig(f"/projects/net_contrast_classification/contrast_phase/DeepLClassifiers/Time_interval/training_curve_filters.png") 
+            plt.savefig(f"{save_path}/{model.__class__.__name__}_{encoder_name}_training_MAE_curve.png") 
 
 
     # Loading the best model
@@ -370,6 +450,41 @@ def evaluate_regressor(model,
 
     return results
 
+
+def build_encoder(name):
+    if name == "ResNet10":
+        enc = resnet10(
+            spatial_dims=3,
+            n_input_channels=1,
+            pretrained=False,
+        )
+        enc.fc = nn.Identity()
+        return enc, 512
+
+    elif name == "CNN8":
+        return CNN8_encoder(), 128
+
+    else:
+        raise ValueError(f"Unknown encoder: {name}")
+    
+def build_model(model_name):
+
+    encoder_name, task = model_name.split("_")
+
+    encoder, emb_dim = build_encoder(encoder_name)
+
+    if task == "estim":
+        model = DeepTimeEstimator(encoder, emb_dim)
+
+    elif task == "reg":
+        model = DeepTimeRegressor(encoder, emb_dim)
+
+    else:
+        raise ValueError(f"Unknown task: {task}")
+
+    return model, encoder_name
+
+
 def main():
     if torch.cuda.is_available():
         print("GPU:", torch.cuda.get_device_name(0), flush=True)
@@ -382,7 +497,14 @@ def main():
     batch_size = 1
     epochs = 50
     
-    print(f"Training time interval estimation model with weights for extreme intervals and filtering", flush=True)
+    model_map = {0: "ResNet10_estim", 1: "CNN8_estim",
+                 2: "ResNet10_reg", 3: "CNN8_reg"
+                # , 2: "Merlin"
+                }
+    
+    task_id = int(os.environ.get("SLURM_ARRAY_TASK_ID", 0))
+    model_name = model_map[task_id]
+
 
     train_dataset = PairDataset(data_dir, split = "train", filter_outliers=True)
     val_dataset = PairDataset(data_dir, split = "val", filter_outliers=True)
@@ -392,20 +514,34 @@ def main():
     val_loader = DataLoader(val_dataset, batch_size=batch_size, shuffle=False)
     test_loader = DataLoader(test_dataset, batch_size=batch_size, shuffle=False)
 
-    model = DeepTimeEstimator(embedding_dim=512)
 
-    trained_model = train_regressor(model,
+    # --------------------------------------------------- Train ---------------------------------------------------
+    # -------------------------------------------------------------------------------------------------------------
+    
+
+    model, encoder_name = build_model(model_name)
+
+
+    print(
+    f"Training time interval estimation model using "
+    f"{model.__class__.__name__} with {encoder_name} encoder",
+    flush=True
+    )   
+
+    trained_model = train_regressor(model, encoder_name,
                                         train_loader,
                                         val_loader,
                                         epochs = epochs,
                                         early_stopping=10,
-                                        error_weights=None)
+                                        error_weights=None,
+                                        )
 
     save_path = "/projects/net_contrast_classification/contrast_phase/DeepLClassifiers/Time_interval"
-    os.makedirs(save_path, exist_ok=True)
+    os.makedirs(f"{save_path}/trained_models", exist_ok=True)
+    os.makedirs(f"{save_path}/results", exist_ok=True)
 
     # Saving the trained model
-    save_path_model = f"{save_path}/trained_model_filters.pth"
+    save_path_model = f"{save_path}/trained_models/{model.__class__.__name__}_{encoder_name}_trained_model.pth"
 
     try:
         # ensure directory exists
@@ -422,7 +558,7 @@ def main():
 
     test_losses = evaluate_regressor(trained_model, test_loader)
     df = pd.DataFrame(test_losses)
-    df.to_csv(f"{save_path}/estimated_intervals_filters.csv", index=False)   
+    df.to_csv(f"{save_path}/results/{model.__class__.__name__}_{encoder_name}_pred_intervals.csv", index=False)   
 
 if __name__ == "__main__":
     main()
