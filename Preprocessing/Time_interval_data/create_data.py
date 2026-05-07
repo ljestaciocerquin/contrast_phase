@@ -4,7 +4,7 @@ import numpy as np
 from pathlib import PureWindowsPath
 import sys
 sys.path.append("/projects/net_contrast_classification/contrast_phase")
-from Preprocessing.Contrast_data.contrast_preprocess import group_stratified_train_val_test_split
+from Preprocessing.Contrast_data.create_data import group_stratified_train_val_test_split
 
 
 
@@ -73,6 +73,7 @@ def build_pairs(paired_data):
                 server_folder,
                 PureWindowsPath(a_row["MatchKey"]).name
             )
+            a_phase = a_row["phase_timing"]
 
             # Preserve multiple kernel reconstructions
             for _, p_row in future_portals.iterrows():
@@ -88,6 +89,8 @@ def build_pairs(paired_data):
                     PureWindowsPath(p_row["MatchKey"]).name
                 )
 
+                p_phase = p_row["phase_timing"]
+
                 pairs.append({
                     "SubjectKeyRadiology": patient_id,
                     "ExamDate": exam_date,
@@ -97,6 +100,10 @@ def build_pairs(paired_data):
 
                     "arterial_organs": a_file.replace(".nii.gz", ".organs.nii.gz"),
                     "portal_organs": p_file.replace(".nii.gz", ".organs.nii.gz"),
+
+
+                    "arterial_timing": a_phase,
+                    "portal_timing": p_phase,
 
                     # SAME arterial anchor
                     "time_interval": interval
