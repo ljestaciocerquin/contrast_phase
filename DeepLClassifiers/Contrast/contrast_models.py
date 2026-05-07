@@ -490,12 +490,6 @@ def main():
     elif model_name == "CNN8":
         model = CNN8(num_classes=len(le.classes_), dropout_rate=0.2)
 
-    # elif model_name == "ViT":
-    #     model = ViT(in_channels=3, img_size=(128,128,128), pos_embed='conv', classification=True, dropout_rate = 0.3, save_attn = True)
-    
-    # else:
-    #     model = MerlinModel(num_classes=len(le.classes_), dropout_rate=0.2)
-
 
     print(f"\nTraining {model_name} for contrast phase classification\n")
 
