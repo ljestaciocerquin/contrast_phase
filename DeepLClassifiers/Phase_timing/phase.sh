@@ -1,7 +1,6 @@
 #!/bin/bash
 #SBATCH --job-name=phase_timing
 #SBATCH --partition=rtx2080ti
-#SBATCH --nodelist=alanturing
 #SBATCH --nodes=1
 #SBATCH --ntasks=1
 #SBATCH --cpus-per-task=4

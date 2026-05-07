@@ -1,3 +1,4 @@
+from pyexpat import model
 import os, random, torch
 import pandas as pd
 import numpy as np
@@ -5,7 +6,6 @@ import torch.nn as nn
 from tqdm import tqdm
 from monai.data import DataLoader
 from torch.nn import CrossEntropyLoss
-
 import torch.nn.functional as F
 import matplotlib.pyplot as plt
 import warnings
@@ -49,9 +49,22 @@ class FocalLoss(nn.Module):
         else:
             return loss  
 
+def class_weights_calculation(data_dir, split = "train", label_name="phase"):
+    data = pd.read_csv(data_dir)
+    train_data = data[data["split"] == split]
+    label_counts = train_data[label_name].value_counts().sort_index()
+    total_samples = len(train_data)
+    num_classes = len(label_counts)
+
+    class_weights = total_samples / (num_classes * label_counts)
+    class_weights = class_weights ** 0.5                                            # square root smoothing to prevent extreme weights
+    class_weights_tensor = torch.tensor(class_weights.values, dtype=torch.float32)
+
+    return class_weights_tensor
+
 def train_cnn(model,
               train_loader, 
-              weights=None, 
+              class_weights=None, 
               val_loader=None, 
               epochs=10, 
               lr=1e-4, 
@@ -63,11 +76,12 @@ def train_cnn(model,
     device = "cuda" if torch.cuda.is_available() else "cpu"
     model = model.to(device)
 
-    if weights is not None:
-        weights = weights.to(device)
+    if class_weights is not None:
+        class_weights = class_weights.to(device)
 
 
-    loss_fn = CrossEntropyLoss()
+    loss_fn = FocalLoss(alpha=class_weights, gamma=2.0) if class_weights is not None else CrossEntropyLoss()
+
     optimizer = torch.optim.Adam(model.parameters(), lr=lr, weight_decay=weight_decay)
 
     best_val_loss = float("inf")
@@ -169,6 +183,7 @@ def train_cnn(model,
         if save_path is not None:
             results_dir = f"{save_path}/results"
             os.makedirs(results_dir, exist_ok=True)
+            loss_str = f", FocalLoss (gamma={loss_fn.gamma})" if isinstance(loss_fn, FocalLoss) else ""
 
             # ---- Loss curve ----
             if train_loss_curve is not None and val_loss_curve is not None:
@@ -177,7 +192,7 @@ def train_cnn(model,
                 plt.plot(val_loss_curve, label="val loss")
                 plt.xlabel("Epoch")
                 plt.ylabel("Loss")
-                plt.title(f"Loss curve: {model.__class__.__name__}")
+                plt.title(f"Loss curve: {model.__class__.__name__}{loss_str}")
                 plt.legend()
 
                 plt.savefig(f"{results_dir}/{model.__class__.__name__}_loss_curve.png")
@@ -190,7 +205,7 @@ def train_cnn(model,
                 plt.plot(val_acc_curve, label="val acc")
                 plt.xlabel("Epoch")
                 plt.ylabel("Accuracy")
-                plt.title(f"Accuracy curve: {model.__class__.__name__}")
+                plt.title(f"Accuracy curve: {model.__class__.__name__}{loss_str}")
                 plt.legend()
 
                 plt.savefig(f"{results_dir}/{model.__class__.__name__}_acc_curve.png")
@@ -216,10 +231,8 @@ def main():
     batch_size = 2
     epochs = 50
 
-    model_map = {
-        0: "ResNet10", 1: "CNN8"
-                #  , 2: "Merlin"
-                 }
+    model_map = {0: "ResNet10", 1: "CNN8"}
+    
     task_id = int(os.environ.get("SLURM_ARRAY_TASK_ID", 0))
     model_name = model_map[task_id]
 
@@ -258,14 +271,17 @@ def main():
     #     model = MerlinModel(num_classes=len(le.classes_), dropout_rate=0.2)
 
 
-    print(f"\nTraining {model_name} for contrast phase classification\n")
+    print(f"\nTraining {model_name} for phase timing classification\n")
 
     save_path = "/projects/net_contrast_classification/contrast_phase/DeepLClassifiers/Phase_timing"
     os.makedirs(save_path, exist_ok=True)
 
+    class_weights = class_weights_calculation(data_dir)
+    print("Class weights:", class_weights, flush=True)
+
     trained_model = train_cnn(model,
                                     train_loader,
-                                    weights = None,
+                                    class_weights=class_weights,
                                     val_loader=val_loader,
                                     epochs = epochs,
                                     early_stopping=10,
