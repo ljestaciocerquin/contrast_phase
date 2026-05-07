@@ -2,14 +2,10 @@
 import os, torch
 import pandas as pd
 import numpy as np
-# from pathlib import Path
-from pathlib import PureWindowsPath
-from monai.transforms import (Compose, LoadImage, Resized, Spacingd
-                              , CropForegroundd, ScaleIntensityRange
-                              , Resize, RandFlipd, RandRotated, RandGaussianNoised,
-                              RandScaleIntensityd, RandAffined)
+from monai.transforms import (Compose, LoadImage, Resized, Spacingd, 
+                              ScaleIntensityRange, RandFlipd, RandRotated, 
+                              RandGaussianNoised, RandScaleIntensityd, RandAffined)
 
-# from sklearn.model_selection import train_test_split
 import torch.nn.functional as F
 from monai.data import MetaTensor
 
@@ -19,128 +15,7 @@ sys.path.append("/projects/net_contrast_classification/contrast_phase")
 from Radiomics.radiomics_pipeline import multi_channel
 import warnings
 warnings.filterwarnings("ignore", category=FutureWarning)
-from sklearn.model_selection import GroupShuffleSplit, StratifiedGroupKFold
 
-
-
-def contrast_timing(dataset):
-    dataset["contrast_timing"] = dataset["contrast"]
-    mask = dataset["contrast"] != "Non-contrast"
-    dataset.loc[mask, "contrast_timing"] = (dataset.loc[mask, "contrast"] + " " + dataset.loc[mask, "phase_timing"].astype(str))
-    dataset.loc[mask, "contrast_timing"] = dataset.loc[mask, "contrast_timing"].str.strip()
-    dataset.loc[dataset["contrast"] == "Non-contrast", "contrast_timing"] = "Non-contrast"   
-
-    return dataset
-
-def files_load(data_dir, sample=None):
-    dataset = pd.read_csv(data_dir)
-
-    dataset['server_folder'] = dataset.exist_on_server.apply(
-        lambda x: "/mnt/rhea/data_private/IRBd23-231/GEPNETs/ARTINET"
-        if pd.notna(x)
-        else "/mnt/rhea/data_private/IRBd23-231/GEPNETs/ARTINET/not_on_server"
-    )
-
-    dataset = dataset[
-        (dataset.contrast.isin(['Arterial', "Portal", "Non-contrast"])) &
-        (dataset.is_liver_imaged.isin(["Yes", "Partially"])) &
-        (dataset.phase_timing != '0.0')
-    ]
-
-    dataset.loc[dataset["contrast"] == "Non-contrast", "phase_timing"] = None
-    dataset = contrast_timing(dataset)
-
-    if sample is not None:
-        dataset = (dataset.groupby('contrast_timing', dropna=False, group_keys=False)
-                   .apply(lambda x: x.sample(n=min(len(x), sample), random_state=42))
-                   .reset_index(drop=True))
-
-        dataset = contrast_timing(dataset)
-        dataset = dataset.sample(frac=1, random_state=42).reset_index(drop=True)
-
-    # ---------------- BUILD FILE PATHS ----------------
-    dataset["image_file"] = dataset.apply(
-        lambda row: os.path.join(
-            row["server_folder"],
-            PureWindowsPath(row["MatchKey"]).name
-        ),
-        axis=1
-    )
-
-    dataset["organ_file"] = dataset["image_file"].str.replace(".nii.gz", ".organs.nii.gz")
-
-    # ---------------- SELECT FINAL COLUMNS ----------------
-    keep_cols = [
-        "SubjectKeyRadiology",
-        "ExamDate",
-        "MatchKey",
-        "contrast",
-        "contrast_timing",
-        "image_file",
-        "organ_file",
-    ]
-
-    dataset = dataset[keep_cols].copy()
-
-    dataset = dataset.rename(columns={
-        "contrast_timing": "phase"
-    })
-
-    rare_classes = ["Portal Too Late",
-                    "Portal Too Early",
-                    "Arterial Too Late"]
-
-    dataset["rare_class"] = dataset["phase"].isin(rare_classes).astype(int)
-
-    return dataset
-
-def group_stratified_train_val_test_split(indices, labels, groups, test_size=0.2, val_size=0.2, random_state=42):
-
-    indices = np.array(indices)
-    labels = np.array(labels)
-    groups = np.array(groups)
-
-    # -------------------------
-    # STEP 1: train vs test
-    # -------------------------
-    n_splits_test = int(1 / test_size)
-
-    sgkf_test = StratifiedGroupKFold(
-        n_splits=n_splits_test,
-        shuffle=True,
-        random_state=random_state
-    )
-
-    train_val_idx, test_idx = next(
-        sgkf_test.split(indices, y=labels, groups=groups)
-    )
-
-    # subset for train/val
-    indices_tv = indices[train_val_idx]
-    labels_tv = labels[train_val_idx]
-    groups_tv = groups[train_val_idx]
-
-    # -------------------------
-    # STEP 2: train vs val
-    # -------------------------
-
-    val_relative = val_size / (1 - test_size)
-    n_splits_val = int(1 / val_relative)
-
-    sgkf_val = StratifiedGroupKFold(
-        n_splits=n_splits_val,
-        shuffle=True,
-        random_state=random_state
-    )
-
-    train_idx_rel, val_idx_rel = next(
-        sgkf_val.split(indices_tv, y=labels_tv, groups=groups_tv)
-    )
-
-    train_idx = indices_tv[train_idx_rel]
-    val_idx = indices_tv[val_idx_rel]
-
-    return train_idx, val_idx, test_idx
 
 class Preprocess3D:
     def __init__(self, dataset, organ_ids, pixdim=(1,1,1), resize = (128,128,128), augment = False):
@@ -194,6 +69,31 @@ class Preprocess3D:
                                                 )
                                     ])
 
+        # self.augment_transform = Compose([
+        #                         RandRotated(keys=["image", "mask"], 
+        #                                     range_x = [0.1, 0.1],                   # ~ 5-6 degrees
+        #                                     range_y = [0.1, 0.1],
+        #                                     range_z = [0.1, 0.1], 
+        #                                     prob=0.8,
+        #                                     padding_mode='reflection',              # mirror filling in the empty space after rotation
+        #                                     allow_missing_keys=True),      
+
+        #                         RandGaussianNoised(keys=["image"], prob=0.3,
+        #                                             mean=0.0, std=0.02,
+        #                                             allow_missing_keys=True),
+
+        #                         RandScaleIntensityd(keys=["image"], factors=0.02, prob=0.5, allow_missing_keys=True),
+
+        #                         RandAffined(keys=["image", "mask"],                 # random affine with translation and scaling
+        #                                     mode=["bilinear", "nearest"],
+        #                                     padding_mode='reflection',
+        #                                     translate_range=(8,8,8),                # randomly select pixel/voxel to translate for every spatial dims
+        #                                     scale_range=(0.1,0.1,0.1),           # randomly select the scale factor to translate for every spatial dims
+        #                                     shear_range=(0.1,0.1,0.1),
+        #                                     prob=0.7,
+        #                                     allow_missing_keys=True
+        #                                 )
+        #                     ])
     def data_load(self, idx):
         row = self.dataset.iloc[idx]
 
@@ -257,11 +157,6 @@ class Preprocess3D:
 
         if row["augment"] == 1:
             for _ in range(num_aug):
-                data = {"image": image.clone(), "mask": organ_array.clone()}
-                data = self.augment_transform(data)
-                augmented_samples.append((data["image"], data["mask"]))
-        else:
-            if np.random.rand() < 0.2:
                 data = {"image": image.clone(), "mask": organ_array.clone()}
                 data = self.augment_transform(data)
                 augmented_samples.append((data["image"], data["mask"]))
@@ -331,7 +226,7 @@ class Preprocess3D:
                 samples = [(image, organ_array)]
 
                 if self.augment and row["split"] == "train":
-                    samples = self.augmentation(image, organ_array, idx)
+                    samples = self.augmentation(image, organ_array, idx, num_aug = 20)
 
                 for i, (img, mask) in enumerate(samples):
                     suffix = "" if i == 0 else f"_aug{i}"
@@ -356,52 +251,13 @@ class Preprocess3D:
 
         return counter, skipped
 
-def save_final_dataset(dataset, output_root, save_root):
-
-    dataset["output_dir"] = dataset["split"].apply(
-        lambda x: os.path.join(output_root, x)
-    )
-
-    dataset["base_name"] = dataset["MatchKey"].apply(
-        lambda x: PureWindowsPath(x).name.replace(".nii.gz", "")
-    )
-
-    dataset["output_path"] = dataset.apply(
-        lambda row: os.path.join(row["output_dir"], f"{row['base_name']}.pt"),
-        axis=1
-    )
-
-    dataset.to_csv(save_root)
-
-    return dataset
-
 def main():
     task_id = int(os.environ["SLURM_ARRAY_TASK_ID"], 0)
     print(f"Running task {task_id}", flush=True)
 
-    # -------- Load data --------
-    data_dir = "/projects/net_contrast_classification/contrast_phase/data/cleaned_data_1.csv"
-    dataset = files_load(data_dir, sample=None)
-
-    train_idx, val_idx, test_idx = group_stratified_train_val_test_split(
-                                                                        np.arange(len(dataset)),
-                                                                        labels=dataset["phase"],
-                                                                        groups=dataset["SubjectKeyRadiology"]
-                                                                            )
-    dataset = dataset.reset_index(drop=True)
-
-    dataset["split"] = "unassigned"
-
-    dataset.loc[train_idx, "split"] = "train"
-    dataset.loc[val_idx, "split"] = "val"
-    dataset.loc[test_idx, "split"] = "test"
-
-    dataset["augment"] = ((dataset["split"] == "train") & (dataset["rare_class"] == 1)).astype(int)
-
-    output_root = "/mnt/rhea/data_private/IRBd23-231/GEPNETs/ARTINET/contrast_preprocessed"
-    save_root = "/projects/net_contrast_classification/contrast_phase/Preprocessing/Contrast_data/preprocessed_data.csv"
-
-    dataset = save_final_dataset(dataset, output_root, save_root)
+    # -------- Load preprocessed data --------
+    data_dir = "/projects/net_contrast_classification/contrast_phase/Preprocessing/Contrast_data/preprocessed_data.csv"
+    dataset = pd.read_csv(data_dir)
 
     organ_ids = [1,2,3,5,8,9,13,51,52,63,64,65,66]
 
@@ -412,7 +268,6 @@ def main():
         resize=(128,128,128),
         augment=True
     )
-
 
     # -------- Assign split --------
     splits = ["train", "val", "test"]

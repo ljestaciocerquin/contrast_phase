@@ -3,13 +3,13 @@
 #SBATCH --partition=rtx2080ti
 #SBATCH --nodes=1
 #SBATCH --ntasks=1
-#SBATCH --cpus-per-task=8
+#SBATCH --cpus-per-task=4
 #SBATCH --mem=16G
 #SBATCH --time=3-00:00:00
 #SBATCH --qos=rtx_qos
 #SBATCH --array=0-29
-#SBATCH --output=/projects/net_contrast_classification/jobs/preprocessing/contrast_data/preprocess_%A_%a.out
-#SBATCH --error=/projects/net_contrast_classification/jobs/preprocessing/contrast_data/preprocess_%A_%a.err
+#SBATCH --output=/projects/net_contrast_classification/jobs/preprocessing/contrast_data/more_aug/preprocess_%A_%a.out
+#SBATCH --error=/projects/net_contrast_classification/jobs/preprocessing/contrast_data/more_aug/preprocess_%A_%a.err
 
 
 source /home/k.minkova/miniconda3/etc/profile.d/conda.sh
