@@ -206,7 +206,7 @@ class DeepTimeRegressor(nn.Module):
 
         # feature interactions
         z_diff = z_p - z_a                                           # captures the changing contrast dynamics from arterial -> portal
-        z_cos = F.cosine_similarity(z_a, z_p, dim=1, keepdim=True)   # captures the similarity between arterial and portal respresentations
+        z_cos = F.cosine_similarity(z_a, z_p, dim=1).unsqueeze(1)   # captures the similarity between arterial and portal respresentations
 
         # concatenate
         z = torch.cat([z_a, z_p, z_diff, z_cos], dim=1)
