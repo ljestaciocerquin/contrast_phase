@@ -25,31 +25,6 @@ import os
 
 file_exist = os.path.exists
 
-def multi_channel(organ_ids, seg_ct):
-    """
-    Convert a multi-label mask to a multi-channel mask [num_organs, H, W, D]
-
-    organ_ids: list of int
-               The integer labels corresponding to each organ
-    seg_ct: np.ndarray 
-        The multi-label mask 
-
-    returns channels: np.ndarray of shape [num_organs, H, W, D]
-    """
-    
-    if seg_ct.ndim == 4 and seg_ct.shape[0] == 1:
-        seg_ct = seg_ct[0]  # remove singleton channel
-    elif seg_ct.ndim == 3:
-        pass  # already okay
-    else:
-        raise ValueError(f"Unexpected shape for seg_ct: {seg_ct.shape}")
-    
-    channels = np.zeros((len(organ_ids), *seg_ct.shape), dtype=np.uint8)
-    for i, oid in enumerate(organ_ids):
-        channels[i] = (seg_ct == oid).astype(np.uint8)
-        
-    return channels
-
 def load_liver_mask(mask_path: Path, liver_index: int = 5) -> sitk.Image:
     """
     Load a multi-channel organ mask and extract only the liver channel.
