@@ -55,7 +55,7 @@ def main():
     data_dir = "/projects/net_contrast_classification/contrast_phase/Preprocessing/Contrast_data/preprocessed_data.csv"
 
     batch_size = 2
-    epochs = 50
+    epochs = 100
 
     label_map = {0: "contrast",
                  1: "phase"}
@@ -101,7 +101,7 @@ def main():
                                     class_weights=class_weights,
                                     val_loader=val_loader,
                                     epochs = epochs,
-                                    early_stopping=10,
+                                    early_stopping=None,
                                     save_path = save_path)
     
 
