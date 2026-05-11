@@ -25,6 +25,8 @@ import os
 
 file_exist = os.path.exists
 
+# dummy comment to resolve github issue
+
 def load_liver_mask(mask_path: Path, liver_index: int = 5) -> sitk.Image:
     """
     Load a multi-channel organ mask and extract only the liver channel.

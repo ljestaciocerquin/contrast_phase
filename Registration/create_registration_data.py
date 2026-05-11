@@ -4,7 +4,7 @@ from pathlib import PureWindowsPath
 import sys
 sys.path.append("/projects/net_contrast_classification/contrast_phase")
 
-
+# dummy comment to resolve merge conflicts on github
 LIVER_LABEL = 5
 SERVER_ROOT = "/mnt/rhea/data_private/IRBd23-231/GEPNETs/ARTINET"
 NOT_ON_SERVER_ROOT = "/mnt/rhea/data_private/IRBd23-231/GEPNETs/ARTINET/not_on_server"
