@@ -37,7 +37,8 @@ class FocalLoss(nn.Module):
         pt = torch.exp(-ce_loss)                # probability of correct class
 
         if self.alpha is not None:
-            at = self.alpha[targets]
+            alpha = self.alpha.to(logits.device)
+            at = alpha[targets]
             ce_loss = at * ce_loss
 
         loss = (1 - pt) ** self.gamma * ce_loss
@@ -48,6 +49,54 @@ class FocalLoss(nn.Module):
             return loss.sum()
         else:
             return loss  
+
+class OrdinalFocalLoss(nn.Module):
+    def __init__(
+        self,
+        alpha=None,
+        gamma=2.0,
+        lambda_ordinal=0.1,
+        reduction="mean",
+    ):
+        super().__init__()
+
+        self.lambda_ordinal = lambda_ordinal
+
+        # use your existing focal loss
+        self.focal = FocalLoss(
+            alpha=alpha,
+            gamma=gamma,
+            reduction=reduction,
+        )
+
+    def ordinal_loss(self, logits, targets):
+
+        probs = F.softmax(logits, dim=1)
+
+        num_classes = logits.shape[1]
+
+        class_range = torch.arange(
+            num_classes,
+            device=logits.device,
+            dtype=torch.float32,
+        )
+
+        # expected ordinal prediction
+        pred_value = (probs * class_range).sum(dim=1)
+
+        targets = targets.float()
+
+        return F.mse_loss(pred_value, targets)
+
+    def forward(self, logits, targets):
+
+        focal_loss = self.focal(logits, targets)
+
+        ordinal_loss = self.ordinal_loss(logits, targets)       # higher penalty for predictions far from the groun truth
+
+        total_loss = focal_loss + self.lambda_ordinal * ordinal_loss
+
+        return total_loss, focal_loss, ordinal_loss
 
 def class_weights_calculation(data_dir, split = "train", label_name="phase"):
     data = pd.read_csv(data_dir)
@@ -69,6 +118,7 @@ def train_cnn(model,
               epochs=10, 
               lr=1e-4, 
               weight_decay = 1e-4, 
+              loss_fn = CrossEntropyLoss(),
               early_stopping = None,
               save_path = None
               ):
@@ -79,10 +129,7 @@ def train_cnn(model,
     if class_weights is not None:
         class_weights = class_weights.to(device)
 
-
-    loss_fn = FocalLoss(alpha=class_weights, gamma=2.0) if class_weights is not None else CrossEntropyLoss()
-
-    optimizer = torch.optim.Adam(model.parameters(), lr=lr, weight_decay=weight_decay)
+    optimizer = torch.optim.AdamW(model.parameters(), lr=lr, weight_decay=weight_decay)
 
     best_val_loss = float("inf")
     counter = 0
@@ -112,7 +159,12 @@ def train_cnn(model,
             optimizer.zero_grad()
 
             outputs = model(images)
-            loss = loss_fn(outputs, labels)
+            if isinstance(loss_fn, OrdinalFocalLoss):
+                loss, focal_loss, ordinal_loss = loss_fn(outputs, labels)
+            else:
+                loss = loss_fn(outputs, labels)
+                # focal_loss, ordinal_loss = None, None
+                
             loss.backward()
             optimizer.step()
 
@@ -147,7 +199,12 @@ def train_cnn(model,
 
 
                     outputs = model(images)
-                    loss = loss_fn(outputs, labels)
+
+                    if isinstance(loss_fn, OrdinalFocalLoss):
+                        loss, focal_loss, ordinal_loss = loss_fn(outputs, labels)
+                    else:
+                        loss = loss_fn(outputs, labels)
+                        # focal_loss, ordinal_loss = None, None
 
                     val_loss += loss.item()
                     preds = torch.argmax(outputs, dim=1)
@@ -175,7 +232,7 @@ def train_cnn(model,
             else:
                 counter += 1
                 print(f"No improvement ({counter})")
-
+                
                 if early_stopping is not None and counter >= early_stopping:
                     print("Early stopping triggered")
                     break
@@ -183,7 +240,19 @@ def train_cnn(model,
         if save_path is not None:
             results_dir = f"{save_path}/results"
             os.makedirs(results_dir, exist_ok=True)
-            loss_str = f", FocalLoss (gamma={loss_fn.gamma})" if isinstance(loss_fn, FocalLoss) else ""
+            loss_str = ""
+
+            if isinstance(loss_fn, OrdinalFocalLoss):
+                loss_str = (
+                    f", OrdinalFocalLoss (gamma={loss_fn.focal.gamma}, "
+                    f"lambda_ordinal={loss_fn.lambda_ordinal})"
+                )
+                gamma_str = f"g_{int(loss_fn.focal.gamma)}"
+
+            elif isinstance(loss_fn, FocalLoss):
+                loss_str = f", FocalLoss (gamma={loss_fn.gamma})"
+                gamma_str = f"g_{int(loss_fn.gamma)}"
+
 
             # ---- Loss curve ----
             if train_loss_curve is not None and val_loss_curve is not None:
@@ -195,21 +264,21 @@ def train_cnn(model,
                 plt.title(f"Loss curve: {model.__class__.__name__}{loss_str}")
                 plt.legend()
 
-                plt.savefig(f"{results_dir}/{model.__class__.__name__}_loss_curve.png")
+                plt.savefig(f"{results_dir}/{model.__class__.__name__}_{gamma_str}_loss_curve.png")
                 plt.close()
 
             # ---- Accuracy curve ----
-            if train_acc_curve is not None and val_acc_curve is not None:
-                plt.figure()
-                plt.plot(train_acc_curve, label="train acc")
-                plt.plot(val_acc_curve, label="val acc")
-                plt.xlabel("Epoch")
-                plt.ylabel("Accuracy")
-                plt.title(f"Accuracy curve: {model.__class__.__name__}{loss_str}")
-                plt.legend()
+            # if train_acc_curve is not None and val_acc_curve is not None:
+            #     plt.figure()
+            #     plt.plot(train_acc_curve, label="train acc")
+            #     plt.plot(val_acc_curve, label="val acc")
+            #     plt.xlabel("Epoch")
+            #     plt.ylabel("Accuracy")
+            #     plt.title(f"Accuracy curve: {model.__class__.__name__}{loss_str}")
+            #     plt.legend()
 
-                plt.savefig(f"{results_dir}/{model.__class__.__name__}_acc_curve.png")
-                plt.close()
+            #     plt.savefig(f"{results_dir}/{model.__class__.__name__}_acc_curve.png")
+            #     plt.close()
 
     # Loading the best model
     if best_model_state is not None:
@@ -230,8 +299,15 @@ def main():
 
     batch_size = 2
     epochs = 50
+    dropout_rate = 0.2
+    gamma = 2.0
 
-    model_map = {0: "ResNet10", 1: "CNN8"}
+
+    model_map = {0: "ResNet10 gamma = 2.0",
+                1: "CNN8 gamma = 2.0",
+                2: "ResNet10 gamma = 4.0",
+                3: "CNN8 gamma = 4.0"
+                }
     
     task_id = int(os.environ.get("SLURM_ARRAY_TASK_ID", 0))
     model_name = model_map[task_id]
@@ -257,21 +333,16 @@ def main():
     # -------------------------------------------------------------------------------------------------------------
     
 
-    if model_name == "ResNet10":
-        model = ResNet(num_classes = len(le.classes_), dropout_rate=0.3)
+    if model_name.split(' gamma = ')[0] == "ResNet10":
+        model = ResNet(num_classes = len(le.classes_), dropout_rate=dropout_rate)
     
-    elif model_name == "CNN8":
+    elif model_name.split(' gamma = ')[0] == "CNN8":
         # Simple 3D CNN trained from scratch
-        model = CNN8(num_classes=len(le.classes_), dropout_rate=0.2)
+        model = CNN8(num_classes=len(le.classes_), dropout_rate=dropout_rate)
 
-    # elif model_name == "ViT":
-    #     model = ViT(in_channels=3, img_size=(128,128,128), pos_embed='conv', classification=True, dropout_rate = 0.3, save_attn = True)
-    
     # else:
     #     model = MerlinModel(num_classes=len(le.classes_), dropout_rate=0.2)
 
-
-    print(f"\nTraining {model_name} for phase timing classification\n")
 
     save_path = "/projects/net_contrast_classification/contrast_phase/DeepLClassifiers/Phase_timing"
     os.makedirs(save_path, exist_ok=True)
@@ -279,16 +350,24 @@ def main():
     class_weights = class_weights_calculation(data_dir)
     print("Class weights:", class_weights, flush=True)
 
+    loss_fn = OrdinalFocalLoss(alpha=class_weights, gamma=gamma)
+
+
+    print(f"\nTraining {model_name} for phase timing classification with {loss_fn.__class__.__name__}\n", flush=True)
+    print(f"Epochs: {epochs}, Batch size: {batch_size}, Dropout rate: {dropout_rate}", flush=True)
+
     trained_model = train_cnn(model,
                                     train_loader,
                                     class_weights=class_weights,
                                     val_loader=val_loader,
                                     epochs = epochs,
                                     early_stopping=10,
+                                    loss_fn=loss_fn,
                                     save_path = save_path)
     
 
     # Saving the trained model
+    model_name = model_name.split(' ')[0].lower() + "_g" + str(int(gamma))
     save_path_model = f"{save_path}/trained_models/{model_name}_trained.pth"
 
     try:

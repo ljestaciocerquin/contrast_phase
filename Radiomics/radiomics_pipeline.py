@@ -4,8 +4,9 @@ import numpy as np
 import SimpleITK as sitk
 from radiomics import featureextractor
 from pathlib import PureWindowsPath
-import os
+import os, sys
 from pathlib import Path
+from multiprocessing import Pool
 
 
 def list_organs(selected=None, by='name'):
@@ -369,5 +370,96 @@ def append_df_to_csv(df, output_csv_path, wrote_header, processed_images, total_
     return wrote_header, processed_images, total_rows
 
 def process_single_image(args):
+
     file_path, phase, folder_path = args
     return feature_extract(file_path, phase, folder_path)
+
+def process_batch(data, batch_id, chunk_id, num_chunks, folder_path, output_path):
+
+    if batch_id == 0:
+        data = data[data.exist_on_server.notna()]
+    else:
+        data = data[data.exist_on_server.isna()]
+
+    os.makedirs(output_path, exist_ok=True)
+
+    files = data["MatchKey"].tolist()
+    phases = data["contrast"].tolist()
+
+    # Split work across chunks
+    idx_splits = np.array_split(np.arange(len(files)), num_chunks)
+
+    chunk_indices = idx_splits[chunk_id].tolist()
+
+    chunk_files = [files[i] for i in chunk_indices]
+    chunk_phases = [phases[i] for i in chunk_indices]
+
+    # CPUs allocated by Slurm
+    n_cpus = int(os.environ.get("SLURM_CPUS_PER_TASK", 1))
+    n_workers = min(n_cpus, len(chunk_files))
+
+    print(f"Batch {batch_id}, Chunk {chunk_id}: using {n_workers} workers")
+
+    args = [
+        (file_path, phase, folder_path)
+        for file_path, phase in zip(chunk_files, chunk_phases)
+    ]
+
+    output_csv_path = os.path.join(
+        output_path,
+        f"features_batch_{batch_id}_chunk_{chunk_id}.csv"
+    )
+
+    wrote_header = False
+    processed_images = 0
+    total_rows = 0
+
+    with Pool(processes=n_workers) as pool:
+
+        for df_img in pool.imap_unordered(
+            process_single_image,
+            args,
+            chunksize=1
+        ):
+
+            wrote_header, processed_images, total_rows = append_df_to_csv(
+                df_img,
+                output_csv_path,
+                wrote_header,
+                processed_images,
+                total_rows,
+            )
+
+    print(
+        f"Batch {batch_id}, Chunk {chunk_id} done. "
+        f"Processed {processed_images} images, "
+        f"wrote {total_rows} rows to {output_csv_path}"
+    )
+
+
+def main():
+    data = pd.read_csv("/projects/net_contrast_classification/contrast_phase/data/cleaned_data_1.csv")
+
+    folder_path1 = "/mnt/rhea/data_private/IRBd23-231/GEPNETs/ARTINET"
+    output_path1 = "/projects/net_contrast_classification/contrast_phase/Radiomics/features/vol1"
+
+    folder_path2= "/mnt/rhea/data_private/IRBd23-231/GEPNETs/ARTINET/not_on_server"
+    output_path2 = "/projects/net_contrast_classification/contrast_phase/Radiomics/features/vol2"
+
+    job_id = int(os.environ.get("SLURM_ARRAY_TASK_ID", 0))
+
+    batch_id = job_id // 4
+    chunk_id = job_id % 4
+
+    print(f"Running batch {batch_id}, chunk {chunk_id}")
+
+    if batch_id == 0:
+        process_batch(data,batch_id,chunk_id,4,folder_path1,output_path1)
+
+    else:
+        process_batch(data,batch_id,chunk_id,4,folder_path2,output_path2)
+
+
+
+if __name__ == "__main__":
+    main()

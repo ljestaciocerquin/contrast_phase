@@ -14,13 +14,12 @@ warnings.filterwarnings("ignore", category=FutureWarning)
 
 
 class PairedPreprocess:
-    def __init__(self, dataset, organ_ids, test_size = 0.2,
+    def __init__(self, dataset, organ_ids,
             pixdim=(1,1,1), resize = (128,128,128)
             ):
     
         self.dataset = dataset
         self.organ_ids=organ_ids
-        self.test_size=test_size
         self.pixdim=pixdim
         self.resize=resize
         self.loader=LoadImage(image_only=True, ensure_channel_first=True)
@@ -227,7 +226,6 @@ def main():
     preprocessor = PairedPreprocess(
         dataset,
         organ_ids,
-        test_size=0.2,
         pixdim=(1,1,1),
         resize=(128,128,128)
     )

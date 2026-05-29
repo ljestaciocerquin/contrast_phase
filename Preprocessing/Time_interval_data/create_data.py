@@ -36,7 +36,7 @@ def create_paired_data(dataset):
     paired_data = (
         dataset
         .sort_values(["SubjectKeyRadiology", "ExamDate", "AcquisitionTime_sec"])
-        .groupby(["SubjectKeyRadiology", "ExamDate", "server_folder"])
+        .groupby(["SubjectKeyRadiology", "ExamDate"])
         .filter(lambda g: required_phases.issubset(set(g["contrast"])))
     )
     
@@ -47,8 +47,8 @@ def build_pairs(paired_data):
     pairs = []
 
     # Per exam
-    for (patient_id, exam_date, server_folder), group in paired_data.groupby(
-        ["SubjectKeyRadiology", "ExamDate", "server_folder"]
+    for (patient_id, exam_date), group in paired_data.groupby(
+        ["SubjectKeyRadiology", "ExamDate"]
     ):
 
         group = group.sort_values("AcquisitionTime_sec")
@@ -70,7 +70,7 @@ def build_pairs(paired_data):
                 continue
 
             a_file = os.path.join(
-                server_folder,
+                a_row["server_folder"],
                 PureWindowsPath(a_row["MatchKey"]).name
             )
             a_phase = a_row["phase_timing"]
@@ -85,7 +85,7 @@ def build_pairs(paired_data):
                     continue
 
                 p_file = os.path.join(
-                    server_folder,
+                    p_row["server_folder"],
                     PureWindowsPath(p_row["MatchKey"]).name
                 )
 
@@ -196,11 +196,11 @@ def final_dataset(dataset, output_root):
 
 def main():
     # -------- Load paired data --------
-    data_dir = "/projects/net_contrast_classification/contrast_phase/data/cleaned_data_1.csv"
+    data_dir = "/projects/net_contrast_classification/contrast_phase/data/cleaned_data/cleaned_data.csv"
 
     paired_data = load_and_split(data_dir)
 
-    output_root = "/mnt/rhea/data_private/IRBd23-231/GEPNETs/ARTINET/pairs_preprocessed"
+    output_root = "/mnt/rhea/data_private/IRBd23-231/GEPNETs/contrast_phase/pairs_preprocessed"
     save_root = "/projects/net_contrast_classification/contrast_phase/Preprocessing/Time_interval_data/paired_preprocessed_data.csv"
 
     paired_data = final_dataset(paired_data, output_root)

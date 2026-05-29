@@ -178,7 +178,7 @@ def main():
 
     data = load_and_split(data_dir)
 
-    output_root = "/mnt/rhea/data_private/IRBd23-231/GEPNETs/ARTINET/contrast_preprocessed" 
+    output_root = "/mnt/rhea/data_private/IRBd23-231/GEPNETs/contrast_phase/contrast_preprocessed" 
     save_root = "/projects/net_contrast_classification/contrast_phase/Preprocessing/Contrast_data/preprocessed_data.csv"
 
     data = save_final_dataset(data, output_root, save_root)

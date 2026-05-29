@@ -6,8 +6,14 @@ DeepLClassifiers/time_estimation.ipynb
 DeepLClassifiers/experiment.ipynb
 Segmentation/cross_segment_preprocess.py
 Segmentation/cross_segment.py
+Preprocessing/Paired_diffusion_data
+Segmentation/cross_segment_models.py
+Segmentation/train_cross_seg.py
+Segmentation/*
 
-
+echo "__pycache__/" >> .gitignore
+echo "*.pyc" >> .gitignore
+echo "*.ipynb_checkpoints/" >> .gitignore
 
 *.pth
 *.pt

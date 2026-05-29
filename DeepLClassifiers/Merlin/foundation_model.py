@@ -54,8 +54,9 @@ def main():
 
     data_dir = "/projects/net_contrast_classification/contrast_phase/Preprocessing/Contrast_data/preprocessed_data.csv"
 
-    batch_size = 2
-    epochs = 100
+    batch_size = 3
+    epochs = 50
+    gamma = 4.0
 
     label_map = {0: "contrast",
                  1: "phase"}
@@ -101,12 +102,13 @@ def main():
                                     class_weights=class_weights,
                                     val_loader=val_loader,
                                     epochs = epochs,
-                                    early_stopping=None,
+                                    early_stopping=10,
+                                    gamma = gamma,
                                     save_path = save_path)
     
 
     # Saving the trained model
-    save_path_model = f"{save_path}/trained_models/{label_name}_trained.pth"
+    save_path_model = f"{save_path}/trained_models/{label_name}{[f'_g{int(gamma)}' if label_name == 'phase' else '']}_trained.pth"
 
     try:
         # ensure directory exists
@@ -124,7 +126,7 @@ def main():
     _, misclassifications = evaluate_model(trained_model, test_loader, class_names=le.classes_)
 
     df = pd.DataFrame(misclassifications)
-    df.to_csv(f"{save_path}/results/{label_name}_misclassifications.csv", index=False)
+    df.to_csv(f"{save_path}/results/{label_name}{[f'_g{int(gamma)}' if label_name == 'phase' else '']}_misclassifications.csv", index=False)
 
 
 if __name__ == "__main__":

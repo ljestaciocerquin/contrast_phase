@@ -1,14 +1,10 @@
 import os, torch
 import pandas as pd
 import numpy as np
-# from pathlib import Path
-from pathlib import PureWindowsPath
-from monai.transforms import (Compose, LoadImage, Resized, Spacingd, ScaleIntensityRanged)
-
-# from sklearn.model_selection import train_test_split
-import torch.nn.functional as F
+from monai.transforms import (
+    Compose, LoadImage, Resized, Spacingd, ScaleIntensityRanged
+)
 from monai.data import MetaTensor
-from contrast_phase.Preprocessing.Contrast_data.cnn_preprocess import group_train_test_split
 
 import sys
 sys.path.append("/projects/net_contrast_classification/contrast_phase")
@@ -16,310 +12,245 @@ sys.path.append("/projects/net_contrast_classification/contrast_phase")
 from Radiomics.radiomics_pipeline import multi_channel
 import warnings
 warnings.filterwarnings("ignore", category=FutureWarning)
-from sklearn.model_selection import GroupShuffleSplit
-from itertools import product
-
-
-def create_paired_data(dataset):
-    dataset = dataset.copy()
-
-    # Assign server folder
-    dataset["server_folder"] = dataset["exist_on_server"].apply(
-        lambda x: "/mnt/rhea/data_private/IRBd23-231/GEPNETs/ARTINET"
-        if pd.notna(x)
-        else "/mnt/rhea/data_private/IRBd23-231/GEPNETs/ARTINET/not_on_server"
-    )
-
-    # Filter valid rows
-    dataset = dataset[
-        (dataset.contrast.isin(["Arterial", "Portal"])) &
-        (dataset.is_liver_imaged == "Yes") &
-        (dataset.phase_timing != "0.0")
-    ].copy()
-
-
-    # Keep only exams with both phases
-    required_phases = {"Arterial", "Portal"}
-
-    paired_data = (
-        dataset
-        .sort_values(["SubjectKeyRadiology", "ExamDate"])
-        .groupby(["SubjectKeyRadiology", "ExamDate", "server_folder"])
-        .filter(lambda g: required_phases.issubset(set(g["contrast"])))
-    )
-
-    return paired_data
-
-
-
-def build_pairs(paired_data):
-
-    pairs = []
-
-    # Per exam
-    for (patient_id, exam_date, server_folder), group in paired_data.groupby(
-        ["SubjectKeyRadiology", "ExamDate", "server_folder"]
-    ):
-
-        arterial = group[group["contrast"] == "Arterial"]
-        portal = group[group["contrast"] == "Portal"]
-
-        if arterial.empty or portal.empty:
-            continue
-
-        # For each arterial, pair with ALL future portal variants
-        for _, a_row in arterial.iterrows():
-
-            a_file = os.path.join(
-                server_folder,
-                PureWindowsPath(a_row["MatchKey"]).name
-            )
-
-            # Preserve multiple kernel reconstructions
-            for _, p_row in portal.iterrows():
-
-                p_file = os.path.join(
-                    server_folder,
-                    PureWindowsPath(p_row["MatchKey"]).name
-                )
-
-                pairs.append({
-                    "SubjectKeyRadiology": patient_id,
-                    "ExamDate": exam_date,
-
-                    "arterial_file": a_file,
-                    "portal_file": p_file,
-
-                    "arterial_organs": a_file.replace(".nii.gz", ".organs.nii.gz"),
-                    "portal_organs": p_file.replace(".nii.gz", ".organs.nii.gz"),
-
-                    "arterial_seg": a_file.replace(".nii.gz", ".seg.nii.gz"),
-                    "portal_seg": p_file.replace(".nii.gz", ".seg.nii.gz")
-                })
-
-    return pd.DataFrame(pairs).reset_index(drop=True)
-
-
-def files_load(data_dir, sample=None):
-
-    dataset = pd.read_csv(data_dir)
-
-    dataset['server_folder'] = dataset.exist_on_server.apply(
-        lambda x: "/mnt/rhea/data_private/IRBd23-231/GEPNETs/ARTINET"
-        if pd.notna(x)
-        else "/mnt/rhea/data_private/IRBd23-231/GEPNETs/ARTINET/not_on_server"
-    )
-
-    dataset = dataset[
-        (dataset.contrast.isin(['Arterial', "Portal"])) &
-        (dataset.is_liver_imaged == "Yes") &
-        (dataset.phase_timing != '0.0')
-    ]
-
-    dataset = dataset.sort_values(
-        by=["SubjectKeyRadiology", "ExamDate", "contrast"]
-    )
-
-    # -------- build pairs --------
-    pairs_df = build_pairs(dataset)
-
-    # -------- optional sampling --------
-    if sample:
-        pairs_df = pairs_df.sample(n=sample, random_state=42)
-
-    return (
-        pairs_df["SubjectKeyRadiology"].tolist(),
-        pairs_df["ExamDate"],
-        pairs_df["arterial_file"].tolist(),
-        pairs_df["portal_file"].tolist(),
-        pairs_df["arterial_organs"].tolist(),
-        pairs_df["portal_organs"].tolist(),
-        pairs_df["arterial_seg"].tolist(),
-        pairs_df["portal_seg"].tolist()
-    )
-
-def group_train_test_split(indices, test_size=0.2, groups=None):
-    """
-    Splits indices into train/test without splitting the same group across sets.
-    
-    Args:
-        indices: array-like of indices to split (e.g., np.arange(len(images)))
-        test_size: fraction of data to use as test
-        groups: array-like of same length as indices indicating group membership
-    
-    Returns:
-        train_idx, test_idx: arrays of indices
-    """
-    splitter = GroupShuffleSplit(test_size=test_size, n_splits=1, random_state=42)
-    train_idx, test_idx = next(splitter.split(indices, groups=groups))
-
-    return train_idx, test_idx
 
 
 class PairedDiffusionPreprocess:
-    def __init__(self, patient_ids, dates, a_files, p_files,
-            a_organs, p_organs, a_seg, p_seg, organ_ids, intervals, test_size = 0.2,
-            pixdim=(1,1,1), resize = (128,128,128)
-            ):
-    
-        self.patient_ids=patient_ids
-        self.dates = dates
-        self.a_files = a_files
-        self.p_files = p_files
-        self.a_organs = a_organs
-        self.p_organs = p_organs
-        self.a_organs = a_seg
-        self.p_organs = p_seg
-        self.organ_ids=organ_ids
-        self.test_size=test_size
-        self.pixdim=pixdim
-        self.resize=resize
+    def __init__(self, dataset, organ_ids,
+                 pixdim=(1, 1, 1), resize=(128, 128, 128)):
 
+        self.dataset = dataset
+        self.organ_ids = organ_ids
+        self.pixdim = pixdim
+        self.resize = resize
 
-        self.loader=LoadImage(image_only=True, ensure_channel_first=True)
+        self.loader = LoadImage(image_only=True, ensure_channel_first=True)
+
+        self.image_keys = ["a_image", "p_image"]
+        self.mask_keys = ["a_liver", "p_liver"]
+
         self.transforms = Compose([
-                                    Spacingd(
-                                        keys=["a_image", "p_image", "a_mask", "p_mask", "a_seg", "p_seg"],
-                                        pixdim=self.pixdim,
-                                        mode=["bilinear", "bilinear", "nearest", "nearest", "nearest", "nearest"],
-                                        allow_missing_keys=True,
-                                    ),
-                                    ScaleIntensityRanged(
-                                        keys=["a_image", "p_image"],
-                                        a_min=-100, a_max=300,
-                                        b_min=0.0, b_max=1.0,
-                                        clip=True,
-                                    ),
-                                    Resized(
-                                        keys=["a_image", "p_image", "a_mask", "p_mask", "a_seg", "p_seg"],
-                                        spatial_size=self.resize,
-                                        mode=["bilinear", "bilinear", "nearest", "nearest", "nearest", "nearest"],
-                                        allow_missing_keys=True,
-                                    )
-                                       ])
-        
-        # self.register = # ADD IMAGE REGISTRATION
+            Spacingd(keys=self.image_keys, pixdim=self.pixdim, mode="bilinear", allow_missing_keys=True),
+            Spacingd(keys=self.mask_keys, pixdim=self.pixdim, mode="nearest", allow_missing_keys=True),
 
-    def data_split(self, image_files, patient_ids):
-        all_indices = np.arange(len(image_files))
+            Resized(keys=self.image_keys, spatial_size=self.resize, mode="bilinear", allow_missing_keys=True),
+            Resized(keys=self.mask_keys, spatial_size=self.resize, mode="nearest", allow_missing_keys=True),
 
-        # First split: train+val vs test
-        temp_idx, test_idx = group_train_test_split(all_indices, test_size=0.2, groups=patient_ids)
+            ScaleIntensityRanged(
+                keys=self.image_keys,
+                a_min=-100, a_max=300,
+                b_min=0.0, b_max=1.0,
+                clip=True,
+                allow_missing_keys=True
+            )
+        ])
 
-        # Second split: train vs val
-        train_idx, val_idx = group_train_test_split(temp_idx, test_size=0.2, groups=np.array(patient_ids)[temp_idx])
+    def safe_load(self, path, required=True):
+        if path is None or pd.isna(path):
+            if required:
+                raise FileNotFoundError(f"[INVALID PATH] {path}")
+            return None
 
-        return train_idx, val_idx, test_idx
-    
+        if not os.path.exists(path):
+            if required:
+                raise FileNotFoundError(f"[MISSING FILE] {path}")
+            return None
 
-    def preprocess_sample(self,idx):
-        return
+        try:
+            return self.loader(path)
+        except Exception as e:
+            if required:
+                raise RuntimeError(f"[LOAD FAILED] {path} | {e}")
+            return None
 
-    def preprocess_and_save():
-        return
-    
-    def run(self, output_root, split):
-        return
+    def process_organs(self, mask_raw, affine, already_single_channel=False):
+        if mask_raw is None:
+            return None
 
+        try:
+            if mask_raw.ndim == 3:
+                mask_raw = mask_raw.unsqueeze(0)
+
+            if np.size(mask_raw) == 0:
+                return None
+
+            if already_single_channel:
+                organ_array = mask_raw
+            else:
+                organ_array = multi_channel(self.organ_ids, mask_raw)
+
+            organ_array = torch.from_numpy(organ_array.astype(np.float32))
+            return MetaTensor(organ_array, affine=affine)
+
+        except Exception as e:
+            print(f"Organ processing failed: {e}")
+            return None
+
+    def data_load(self, idx):
+        row = self.dataset.iloc[idx]
+        split = row["split"]
+        is_inference = split == "inference"
+
+        # -------- images --------
+        a_image = self.safe_load(row["arterial_image"], required=not is_inference)
+        p_image = self.safe_load(row["portal_image"], required=not is_inference)
+
+        # STRICT: train/val/test must be complete pairs
+        if not is_inference:
+            if a_image is None or p_image is None:
+                raise ValueError(f"Incomplete pair in {split} at idx {idx}")
+
+        # inference: allow partial, but not fully empty
+        if is_inference:
+            if a_image is None and p_image is None:
+                raise ValueError(f"Both modalities missing at idx {idx}")
+
+        a_affine = a_image.affine if a_image is not None else None
+        p_affine = p_image.affine if p_image is not None else None
+
+        # -------- masks (always optional) --------
+        a_organs_raw = self.safe_load(row["arterial_organs"], required=False)
+        p_organs_raw = self.safe_load(row["portal_organs"], required=False)
+
+        a_liver = self.process_organs(a_organs_raw, a_affine)
+        p_liver = self.process_organs(p_organs_raw, p_affine, already_single_channel=True)
+
+        return a_image, p_image, a_liver, p_liver
+
+    def cropping(self, image, organ_array):
+        if image is None:
+            return None, None, None
+
+        if organ_array is None:
+            return image, organ_array, None
+
+        foreground_mask = torch.from_numpy(
+            (organ_array.sum(axis=0) > 0).astype(np.float32)
+        )
+
+        mask_nonzero = torch.nonzero(foreground_mask)
+
+        if mask_nonzero.numel() == 0:
+            zmin, ymin, xmin = 0, 0, 0
+            zmax, ymax, xmax = foreground_mask.shape
+        else:
+            zmin, ymin, xmin = mask_nonzero.min(0)[0]
+            zmax, ymax, xmax = mask_nonzero.max(0)[0] + 1
+
+        margin = 20
+        zmin = max(zmin - margin, 0)
+        ymin = max(ymin - margin, 0)
+        xmin = max(xmin - margin, 0)
+
+        zmax = min(zmax + margin, foreground_mask.shape[0])
+        ymax = min(ymax + margin, foreground_mask.shape[1])
+        xmax = min(xmax + margin, foreground_mask.shape[2])
+
+        image = image[:, zmin:zmax, ymin:ymax, xmin:xmax]
+        organ_array = organ_array[:, zmin:zmax, ymin:ymax, xmin:xmax]
+
+        return image, organ_array, None
+
+    def preprocess_sample(self, idx):
+
+        a_image, p_image, a_liver, p_liver = self.data_load(idx)
+
+        # -------- cropping (independent per modality) --------
+        if a_liver is not None:
+            a_image, a_liver, _ = self.cropping(a_image, a_liver)
+
+        if p_liver is not None:
+            p_image, p_liver, _ = self.cropping(p_image, p_liver)
+
+        data = {}
+
+        if a_image is not None:
+            data["a_image"] = a_image
+        if p_image is not None:
+            data["p_image"] = p_image
+
+        if a_liver is not None:
+            data["a_liver"] = a_liver
+        if p_liver is not None:
+            data["p_liver"] = p_liver
+
+        print("Cropping done!", flush =True)
+
+        data = self.transforms(data)
+
+        return (
+            data.get("a_image"),
+            data.get("p_image"),
+            data.get("a_liver"),
+            data.get("p_liver")
+        )
+
+    def process_and_save(self, indices):
+        counter = 0
+        skipped = 0
+
+        for idx in indices:
+            row = self.dataset.iloc[idx]
+
+            try:
+                a_img, p_img, a_liver, p_liver = self.preprocess_sample(idx)
+
+                save_path = row["output_path"]
+                os.makedirs(os.path.dirname(save_path), exist_ok=True)
+
+                torch.save({
+                    "patient_id": row["SubjectKeyRadiology"],
+                    "exam_date": row["ExamDate"],
+                    "arterial_image": a_img,
+                    "portal_image": p_img,
+                    "arterial_liver": a_liver,
+                    "portal_liver": p_liver
+                }, save_path)
+
+                counter += 1
+
+            except Exception as e:
+                print(f"Skipping {idx}: {e}", flush=True)
+                skipped += 1
+
+        return counter, skipped
 
 
 def main():
-    task_id = int(os.environ["SLURM_ARRAY_TASK_ID"])
+    task_id = int(os.environ["SLURM_ARRAY_TASK_ID"], 0)
 
-    print(f"Running task {task_id}", flush=True)
-    
-    # -------- Load paired data --------
-    data_dir = "/projects/net_contrast_classification/contrast_phase/data/cleaned_data_1.csv"
-
-    patient_ids, dates, a_files, p_files, a_organs, p_organs, a_seg, p_seg = files_load(
-        data_dir, sample=None
-    )
-
-    image_files = [f"{pid}_{date}" for pid, date in zip(patient_ids, dates)]
+    data_dir = "/projects/net_contrast_classification/contrast_phase/Preprocessing/Paired_diffusion_data/full_pairs.csv"
+    dataset = pd.read_csv(data_dir)
 
     organ_ids = [5]
 
     preprocessor = PairedDiffusionPreprocess(
-        patient_ids,
-        dates,
-        a_files,
-        p_files,
-        a_organs,
-        p_organs,
-        a_seg,
-        p_seg,
+        dataset,
         organ_ids,
-        test_size=0.2,
-        pixdim=(1,1,1),
-        resize=(128,128,128)
+        pixdim=(1, 1, 1),
+        resize=(128, 128, 128)
     )
 
+    # splits = ["train", "val", "test", "inference"]
+    # split_name = splits[task_id % 4]
+    split_name = "inference"  # change if needed
 
-    # -------- Shared split paths --------
-    split_dir = "/projects/net_contrast_classification/contrast_phase/Preprocessing/paired_diffusion_splits"
-    os.makedirs(split_dir, exist_ok=True)
+    indices = dataset.index[dataset["split"] == split_name].to_numpy()
 
-    train_path = os.path.join(split_dir, "train_idx.npy")
-    val_path   = os.path.join(split_dir, "val_idx.npy")
-    test_path  = os.path.join(split_dir, "test_idx.npy")
-
-
-    # -------- Create or load split --------
-    if not (os.path.exists(train_path) and os.path.exists(val_path) and os.path.exists(test_path)):
-        print("Creating split...", flush=True)
-
-        train_idx, val_idx, test_idx = preprocessor.data_split(image_files, patient_ids)
-
-        np.save(train_path, train_idx)
-        np.save(val_path, val_idx)
-        np.save(test_path, test_idx)
-
-    else:
-        print("Loading existing split...", flush=True)
-        train_idx = np.load(train_path)
-        val_idx   = np.load(val_path)
-        test_idx  = np.load(test_path)
-
-    
-    # -------- Assign split --------
-
-    split_map = {
-        0: ("train", train_idx),
-        1: ("val", val_idx),
-        2: ("test", test_idx),
-    }
-
-    split_id = task_id % 3
-    split_name, indices = split_map[split_id]
-
-    # -------- Chunking --------
-    chunks_per_split = 10
-    chunk_id = task_id // 3
-
-    chunks = np.array_split(indices, chunks_per_split)
+    chunks = np.array_split(indices, 2)
+    chunk_id = task_id // 4
 
     if chunk_id >= len(chunks):
-        print("Nothing to process for this task.", flush=True)
+        print("Nothing to process")
         return
 
     my_indices = chunks[chunk_id]
 
-    print(
-        f"Processing {split_name} | chunk {chunk_id} | size {len(my_indices)}",
-        flush=True
-    )
+    print(f"Processing {split_name} | chunk {chunk_id} | size {len(my_indices)}")
 
-    # -------- Output --------
-    output_dir = "/mnt/rhea/data_private/IRBd23-231/GEPNETs/ARTINET/pairs_preprocessed"
+    counter, skipped = preprocessor.process_and_save(my_indices)
 
-    preprocessor.process_and_save(
-        my_indices,
-        os.path.join(output_dir, split_name)
-    )
-
-
+    print(f"Processed {counter} | Skipped {skipped}")
 
 
 if __name__ == "__main__":
     main()
-

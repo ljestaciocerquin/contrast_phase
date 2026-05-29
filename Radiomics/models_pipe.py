@@ -1,15 +1,17 @@
+import pandas as pd
+import numpy as np
+from pathlib import Path
+import matplotlib.pyplot as plt
+from sklearn.manifold import TSNE
+from IPython.display import display
 from xgboost import XGBClassifier
 from sklearn.tree import DecisionTreeClassifier
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.metrics import classification_report, accuracy_score
-import pandas as pd
-import numpy as np
-import matplotlib.pyplot as plt
-from sklearn.manifold import TSNE
-from IPython.display import display
 from data_preprocessing import preprocess_test, preprocess_train
 from sklearn.preprocessing import LabelEncoder
 from sklearn.model_selection import StratifiedGroupKFold
+from data_preprocessing import radiomics_load, train_test_split, preprocess_train, preprocess_test
 
 
 def train_tree_models(X_train, y_train):
@@ -43,43 +45,37 @@ def train_tree_models(X_train, y_train):
 
     return models
 
-def evaluate_model(models, X_test, y_test, encoder, model_name = "GBT"):
+def evaluate_model(model, X_test, y_test, encoder):
     """
     Evaluate trained models using accuracy and classification report.
     """
 
     # Make predictions
-    predictions = {name: model.predict(X_test) for name, model in models.items()}
-    accuracies = {}
+    y_pred = model.predict(X_test)
 
-    for name, pred in predictions.items():
-        acc = accuracy_score(y_test, pred)
-        accuracies[name] = acc
-        print(f"Accuracy of {name}: {acc:.5f}")
+    acc = accuracy_score(y_test, y_pred)
+    print(f"Accuracy of {type(model).__name__}: {acc:.5f}")
 
-    # Choose GBT for detailed evaluation (or highest accuracy)
-    if model_name is not None:
-        y_pred = predictions[model_name]
-        print(f"\nClassification report for {model_name}:")
-        print(classification_report(
+    print(f"\nClassification report for {type(model).__name__}:", flush=True)
+    print(classification_report(
             y_test,
             y_pred,
             labels=np.arange(len(encoder.classes_)),
             target_names=encoder.classes_
-        ))
+        ), flush=True)
 
-        y_test_named = encoder.inverse_transform(y_test)
-        pred_named = encoder.inverse_transform(y_pred)
+    y_test_named = encoder.inverse_transform(y_test)
+    pred_named = encoder.inverse_transform(y_pred)
 
-        display(pd.crosstab(
+    display(pd.crosstab(
             y_test_named,
             pred_named,
             rownames=["True contrast"],
             colnames=["Predicted contrast"],
             margins=True
-        ))
+        ), flush=True)
 
-    return predictions, accuracies
+    return y_pred, acc
 
 def tsne_visual(X_pca,
                 y,
@@ -163,114 +159,6 @@ def window_ct(img, center = 50, width = 300):
         high = center + width/2
         return img.clip(low, high)
 
-# def show_misclass(misclass_data, orig_data, samples_per_class=3, label='contrast'):
-#     """
-#     Display misclassified images with true and predicted labels using
-#     'contrast' and 'pred_contrast' columns in misclass_data.
-
-#     misclass_data: pd.DataFrame
-#         Must contain 'MatchKey', 'contrast', and 'pred_contrast'.
-#     orig_data: pd.DataFrame
-#         Original dataframe with 'MatchKey' and 'server_folder'.
-#     samples_per_class: int
-#         Number of images to show per class.
-#     """
-
-#     # Merge folder paths
-#     misclass_data = misclass_data.merge(orig_data[['MatchKey', 'server_folder']], on='MatchKey', how='left')
-
-#     # Sample images per class
-#     rows = []
-#     for c in misclass_data[label].unique():
-#         subset = misclass_data[misclass_data[label] == c]
-#         rows.append(subset.sample(n=min(samples_per_class, len(subset))))
-
-#     selected_rows = pd.concat(rows).sort_values(label).reset_index(drop=True)
-
-#     file_list = selected_rows.MatchKey.tolist()
-#     folder_list = selected_rows.server_folder.tolist()
-
-#     # Load images
-#     images, _ = data_load(file_list, folder_list, organ_seg=False)
-
-    
-
-#     # Plot images
-#     for _, group in selected_rows.groupby(label):
-
-#         plt.figure(figsize=(15, 5))
-
-#         for j, idx in enumerate(group.index):
-#             img = images[idx][0]
-#             slice_img = img[:, :, int(img.shape[-1] // 1.3)]
-
-#             plt.subplot(1, len(group), j + 1)
-#             plt.imshow(np.rot90(window_ct(slice_img), 1), cmap="gray")
-
-#             # Use contrast and pred_contrast columns
-#             true_label = selected_rows.loc[idx, label]
-#             pred_label = selected_rows.loc[idx, "pred_contrast"]
-#             plt.title(f"True:{true_label}\nPred: {pred_label}")
-#             plt.axis("off")
-
-#         plt.show()
-
-# def show_misclass_widget(misclass_data, orig_data, samples_per_class=3, label='contrast'):
-#     """
-#     Display misclassified images with an interactive slice slider.
-#     """
-
-#     # Merge folder paths
-#     misclass_data = misclass_data.merge(orig_data[['MatchKey', 'server_folder']], left_on="image", right_on='MatchKey', how='left')
-
-#     # Sample images per class
-#     rows = []
-#     for c in misclass_data[label].unique():
-#         subset = misclass_data[misclass_data[label] == c]
-#         rows.append(subset.sample(n=min(samples_per_class, len(subset))))
-
-#     selected_rows = pd.concat(rows).sort_values(label).reset_index(drop=True)
-
-#     file_list = selected_rows.image.tolist()
-#     folder_list = selected_rows.server_folder.tolist()
-
-#     # Load images
-#     images, _ = data_load(file_list, folder_list, organ_seg=False)
-
-#     max_slices = max(img[0].shape[-1] for img in images)
-
-#     # Create a slice slider widget
-#     slice_slider = widgets.IntSlider(
-#         value=max_slices // 2,
-#         min=0,
-#         max=max_slices - 1,
-#         step=1,
-#         description="Slice"
-#     )
-
-#     def update(slice_idx):
-#         """Redraw images for selected slice."""
-#         for _, group in selected_rows.groupby(label):
-#             plt.figure(figsize=(15, 5))
-
-#             for j, idx in enumerate(group.index):
-#                 img = images[idx][0]
-#                 slice_idx_use = min(slice_idx, img.shape[-1] - 1)
-#                 slice_img = img[:, :, slice_idx_use]
-
-#                 plt.subplot(1, len(group), j + 1)
-#                 plt.imshow(np.rot90(window_ct(slice_img), 1), cmap="gray")
-
-#                 true_label = selected_rows.loc[idx, label]
-#                 pred_label = selected_rows.loc[idx, "pred_contrast"]
-#                 plt.title(f"True:{true_label}\nPred: {pred_label}")
-#                 plt.axis("off")
-
-#             plt.show()
-
-#     # Use interactive widget
-#     widgets.interact(update, slice_idx=slice_slider)
-
 def train_pipe(train_data, test_data, meta_cols, class_name = "contrast", model_name="GBT", pca=False):
 
     encoder = LabelEncoder()
@@ -323,3 +211,43 @@ def cross_val(data, meta_cols, class_name = "contrast", model_name="GBT", k=5, g
     print(f"{model_name} accuracy: {np.mean(acc):.3f} ± {np.std(acc):.3f}")
 
     return np.mean(acc)
+
+
+def main():
+    data_dir = Path("/projects/net_contrast_classification/contrast_phase/data/cleaned_data_1.csv")
+    features_dir = Path("/projects/net_contrast_classification/contrast_phase/Radiomics/features")
+    contrast_le = LabelEncoder()
+
+    model_names = ["DT", "RF", "GBT"]
+
+    radiomics = radiomics_load(data_dir, features_dir)
+    radiomics = radiomics[radiomics['SubjectKeyRadiology'].notna()] # ensure no missing values in grouping column
+
+    train_data, test_data = train_test_split(radiomics, test_size=0.3, grouping="SubjectKeyRadiology")
+
+    meta_cols = list(train_data.iloc[:, :5].columns)
+
+    train_pipeline = preprocess_train(train_data, meta_cols, NA_filter_threshold=0.2, pca_components=30)
+
+    train_processed = train_pipeline["data_processed"]
+
+    X_train_pca = train_pipeline["X_pca"]
+
+    test_processed, X_test_pca = preprocess_test(test_data, meta_cols,train_pipeline)
+
+    X_train, y_train = train_processed.iloc[:, 4:], contrast_le.fit_transform(train_processed.contrast)
+    X_test, y_test = test_processed.iloc[:, 4:], contrast_le.fit_transform(test_processed.contrast)
+
+    print(f"Shape of train data: {X_train.shape}\nShape of train labels: {y_train.shape}", flush=True)
+    print(f"Shape of test data: {X_test.shape}\nShape of test labels: {y_test.shape}", flush = True)
+
+    models = train_tree_models(X_train, y_train)
+    for model in model_names:
+        print(f"Evaluating {model}...", flush=True)
+        evaluate_model(models[model], X_test, y_test, contrast_le)
+
+
+
+
+if __name__ == "__main__":
+    main()

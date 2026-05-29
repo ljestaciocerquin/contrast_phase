@@ -130,10 +130,10 @@ class DeepTimeEstimator(nn.Module):
         s_a = self.time_head(z_a)
         s_p = self.time_head(z_p)
 
-        delta = s_p - s_a
-        out = torch.sigmoid(delta)
+        delta = s_p - s_a           # this can be (-inf, +inf)
+        out = torch.sigmoid(delta)  # sigmoid maps the difference to (0,1) - this is the temporal progression score
 
-        time = out * (self.t_max - self.t_min) + self.t_min
+        time = out * (self.t_max - self.t_min) + self.t_min      # the sigmoid score is mapped back to real time
 
         return time.squeeze(1)
     
@@ -495,7 +495,7 @@ def main():
     data_dir = "/projects/net_contrast_classification/contrast_phase/Preprocessing/Time_interval_data/paired_preprocessed_data.csv"
 
     batch_size = 1
-    epochs = 50
+    epochs = 100
     
     model_map = {0: "ResNet10_estim", 1: "CNN8_estim",
                  2: "ResNet10_reg", 3: "CNN8_reg"
@@ -532,7 +532,7 @@ def main():
                                         train_loader,
                                         val_loader,
                                         epochs = epochs,
-                                        early_stopping=10,
+                                        early_stopping=None,
                                         error_weights=None,
                                         )
 

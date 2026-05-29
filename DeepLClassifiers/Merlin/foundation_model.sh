@@ -4,11 +4,11 @@
 #SBATCH --nodes=1
 #SBATCH --ntasks=1
 #SBATCH --cpus-per-task=4
-#SBATCH --mem=20G
+#SBATCH --mem=30G
 #SBATCH --time=3-00:00:00
 #SBATCH --gres=gpu:1
 #SBATCH --qos=rtx_qos
-#SBATCH --array=0-1
+#SBATCH --array=1
 #SBATCH --output=/projects/net_contrast_classification/jobs/deep_class/merlin/training_%A_%a.out
 #SBATCH --error=/projects/net_contrast_classification/jobs/deep_class/merlin/training_%A_%a.err
 

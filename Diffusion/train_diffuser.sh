@@ -5,7 +5,7 @@
 #SBATCH --ntasks=1
 #SBATCH --cpus-per-task=4
 #SBATCH --mem=20G
-#SBATCH --time=3-00:00:00
+#SBATCH --time=2-00:00:00
 #SBATCH --gres=gpu:1
 #SBATCH --qos=rtx_qos
 #SBATCH --output=/projects/net_contrast_classification/jobs/diffusion/diff_%A.out
@@ -19,4 +19,4 @@ conda activate class
 
 cd /projects/net_contrast_classification/contrast_phase
 
-python Diffusion/train_diffuser.py
+python Diffusion/train_diffuser_v3.py
