@@ -1,0 +1,353 @@
+file,is_liver_imaged,contrast,phase_timing,no_lesions,ai_segmentation_quality,manual_segmentation_confidence,adjustment_segmentation_difficulty,high_signal_to_noise,metal_artifacts,patient_motion,other,comment,time-stamp
+NET_0000_0000.nii.gz,1,2,2,True,,,,False,True,False,,,1770804642.8972142
+NET_0002_0000.nii.gz,2,2,2,True,,,,False,False,False,,,1770804668.1607995
+NET_0003_0000.nii.gz,1,2,3,True,0.0,0.0,0.0,False,False,False,,,1770804674.9525392
+NET_0004_0000.nii.gz,1,2,2,True,,,,False,False,False,,,1770804681.6412055
+NET_0008_0000.nii.gz,1,2,2,False,3.0,2.0,5.0,False,False,False,,Problematica nel distinguere lesioni vitali da aree necrotiche dopo il trattamento di embolizzazione Non segmentate lesioni grandi in stato di evidente necrosi ne lesioni piccole che secondo me sono aree necrotiche Segmentate quelle dubbie Anche alla luce dell aspetto nel controllo TC successivo ,1770804695.9530635
+NET_0021_0000.nii.gz,1,1,2,True,,,,False,False,False,,,1770804809.122116
+NET_0016_0000.nii.gz,1,2,2,False,4.0,4.0,1.0,False,False,False,,"non proprio convinta che siano metastasi, ma nei referti parlavano di metastasi quindi dubbio",1770804784.5935333
+NET_0019_0000.nii.gz,1,2,1,True,2.0,4.0,1.0,False,False,False,,,1770804803.1859696
+NET_0023_0000.nii.gz,1,1,2,True,,,,False,True,False,,,1770804814.9468174
+NET_0024_0000.nii.gz,1,2,2,True,0.0,0.0,0.0,False,False,False,,,1770804821.0019748
+NET_0025_0000.nii.gz,1,2,2,True,,,,False,False,False,,,1770804826.9619825
+NET_0026_0000.nii.gz,1,2,2,False,3.0,3.0,4.0,False,False,False,,,1770804835.5703752
+NET_0028_0000.nii.gz,1,2,2,False,4.0,3.0,3.0,False,False,True,,,1770804842.3858445
+NET_0030_0000.nii.gz,1,1,2,True,0.0,0.0,0.0,False,False,False,,,1770804856.1945102
+NET_0032_0000.nii.gz,1,2,3,True,,,,True,False,False,,,1770804865.8106625
+NET_0033_0000.nii.gz,1,2,2,True,0.0,0.0,0.0,True,False,False,,,1770804873.7147024
+NET_0034_0000.nii.gz,1,1,3,True,0.0,0.0,0.0,False,True,True,,,1770804879.2343104
+NET_0035_0000.nii.gz,1,1,2,True,0.0,0.0,0.0,True,False,False,,,1770804886.9785967
+NET_0036_0000.nii.gz,1,2,2,False,4.0,4.0,2.0,False,False,False,,,1770804896.5322857
+NET_0044_0000.nii.gz,1,1,2,True,,,,True,False,False,,,1770804934.6991327
+NET_0047_0000.nii.gz,1,2,2,True,,,,False,False,False,,,1770804944.876135
+NET_0052_0000.nii.gz,1,1,2,True,,,,False,False,False,,,1770805042.2369084
+NET_0053_0000.nii.gz,1,2,2,True,,,,False,False,False,,,1770805049.2441702
+NET_0054_0000.nii.gz,1,2,3,True,,,,False,False,False,,,1770805054.3721948
+NET_0056_0000.nii.gz,1,2,2,True,0.0,0.0,0.0,False,False,False,,,1770805074.1325002
+NET_0011_0000.nii.gz,1,2,3,False,5.0,4.0,1.0,False,False,False,,,1770804752.2893372
+NET_0057_0000.nii.gz,1,2,2,True,0.0,0.0,0.0,False,False,False,,,1770805081.076497
+NET_0055_0000.nii.gz,1,1,2,False,3.0,3.0,4.0,False,True,False,,,1770805066.9088223
+NET_0059_0000.nii.gz,1,1,2,True,,,,False,False,False,,,1770805094.5971391
+NET_0072_0000.nii.gz,1,2,2,True,,,,False,True,False,,,1770805137.6290176
+NET_0075_0000.nii.gz,1,2,2,True,,,,False,False,False,,,1770805163.6465075
+NET_0077_0000.nii.gz,1,2,3,True,,,,False,True,False,,,1770805176.2293382
+NET_0078_0000.nii.gz,1,2,2,True,,,,False,False,False,,,1770805182.9574769
+NET_0039_0000.nii.gz,1,1,1,False,4.0,3.0,5.0,False,False,False,,,1770804913.8834243
+NET_0080_0000.nii.gz,1,2,2,True,,,,False,False,False,,,1770805207.5976348
+NET_0084_0000.nii.gz,1,2,2,False,5.0,5.0,1.0,False,False,False,,,1770805242.7019398
+NET_0085_0000.nii.gz,1,1,2,True,0.0,0.0,0.0,False,False,False,,,1770805249.28622
+NET_0086_0000.nii.gz,1,2,2,True,0.0,0.0,0.0,False,True,False,,,1770805259.8620882
+NET_0093_0000.nii.gz,1,1,1,True,,,,False,False,False,,,1770805299.1341033
+NET_0131_0000.nii.gz,1,2,2,True,,,,False,False,False,,,1770805453.6961706
+NET_0014_0000.nii.gz,1,1,2,False,3.0,2.0,5.0,False,False,False,,,1770804768.8337097
+NET_0139_0000.nii.gz,1,2,2,True,,,,False,False,False,,,1770805498.0958226
+NET_0154_0000.nii.gz,1,2,2,True,,,,False,False,False,,,1770805572.896783
+NET_0157_0000.nii.gz,1,2,2,True,0.0,0.0,0.0,False,False,False,,,1770805584.976871
+NET_0162_0000.nii.gz,1,2,2,True,,,,False,False,False,,,1770805598.792945
+NET_0183_0000.nii.gz,1,1,3,True,,,,False,False,False,,,1770742824.078335
+NET_0087_0000.nii.gz,1,2,3,False,3.0,2.0,2.0,False,False,False,,,1770805268.6301084
+NET_0097_0000.nii.gz,1,1,1,False,3.0,4.0,2.0,True,False,False,,,1770805306.1745117
+NET_0102_0000.nii.gz,1,1,3,True,4.0,4.0,1.0,False,False,False,,Avevo segmentato angioma segm 7 perche essendo cresciuto in un report era stato scritto sospetto per metastasi  Rimosso alla revisione perche mi sembra un angioma,1770805340.622949
+NET_0151_0000.nii.gz,1,2,2,False,4.0,3.0,1.0,False,False,False,,,1770805558.3925693
+NET_0190_0000.nii.gz,1,2,2,False,3.0,3.0,2.0,False,False,False,,,1770742969.239182
+NET_0191_0000.nii.gz,1,1,1,True,,,,False,False,False,,,1770743037.8557286
+NET_0197_0000.nii.gz,1,2,2,False,2.0,2.0,1.0,False,True,False,,,1770743196.1530712
+NET_0200_0000.nii.gz,1,2,2,True,0.0,0.0,0.0,True,False,False,,,1770743392.641586
+NET_0203_0000.nii.gz,1,2,2,True,,,,False,False,False,,,1770743675.5942242
+NET_0204_0000.nii.gz,1,2,2,True,0.0,0.0,0.0,False,False,False,,,1770743729.4258456
+NET_0209_0000.nii.gz,1,1,2,True,0.0,0.0,0.0,False,False,False,,,1770743831.9863195
+NET_0210_0000.nii.gz,1,1,2,True,,,,False,False,False,,,1770743840.1788113
+NET_0212_0000.nii.gz,1,1,2,False,5.0,5.0,1.0,False,False,False,,,1770744088.3551211
+NET_0215_0000.nii.gz,1,2,2,False,5.0,5.0,1.0,False,False,False,,,1770744438.573306
+NET_0216_0000.nii.gz,1,1,2,True,,,,False,False,False,,,1770744529.6853416
+NET_0219_0000.nii.gz,1,1,1,True,,,,False,False,False,,,1770744595.3003862
+NET_0220_0000.nii.gz,1,2,2,True,,,,False,False,False,,,1770744605.7967422
+NET_0221_0000.nii.gz,1,2,2,True,,,,False,False,False,,,1770744619.2290075
+NET_0223_0000.nii.gz,1,2,2,True,0.0,0.0,0.0,False,False,False,,,1770744657.5087912
+NET_0224_0000.nii.gz,1,2,2,False,4.0,3.0,1.0,True,False,False,,,1770744817.989284
+NET_0225_0000.nii.gz,1,1,2,True,,,,False,False,False,,,1770744837.2300673
+NET_0229_0000.nii.gz,1,2,2,True,,,,False,False,False,,,1770744993.3015924
+NET_0230_0000.nii.gz,1,2,2,True,0.0,0.0,0.0,False,False,False,,,1770745067.1415668
+NET_0233_0000.nii.gz,1,1,3,True,,,,False,False,False,,,1770745295.3511662
+NET_0235_0000.nii.gz,1,1,2,True,,,,False,False,False,,,1770745317.1748672
+NET_0238_0000.nii.gz,1,2,2,True,,,,False,False,False,,,1770745326.1420937
+NET_0264_0000.nii.gz,1,2,2,True,0.0,0.0,0.0,False,False,False,,,1770746363.640089
+NET_0136_0000.nii.gz,1,1,3,False,3.0,1.0,3.0,False,False,False,,Margini di alcune lesioni poco definiti segmentazione a volte soggettiva La lesione craniale mi rimane dubbia ma comunque sospetta per cui segmentata,1770805478.9360878
+NET_0142_0000.nii.gz,1,2,2,False,4.0,3.0,1.0,False,False,False,,,1770805526.0321677
+NET_0213_0000.nii.gz,1,1,2,False,3.0,4.0,1.0,False,False,False,,,1770744248.4676964
+NET_0231_0000.nii.gz,1,2,2,True,0.0,0.0,0.0,False,False,False,,,1770745095.149883
+NET_0240_0000.nii.gz,1,2,2,True,0.0,0.0,0.0,False,False,False,,,1770745402.8712397
+NET_0259_0000.nii.gz,1,1,2,False,4.0,2.0,2.0,False,False,False,,,1770745962.0234618
+NET_0269_0000.nii.gz,2,2,2,True,0.0,0.0,0.0,False,False,False,,,1770747034.5212798
+NET_0274_0000.nii.gz,2,1,1,True,0.0,0.0,0.0,False,False,False,,"nb il fegato e' pressoche' completamente compreso, manca appena 1 mm",1770747302.322152
+NET_0277_0000.nii.gz,1,1,3,True,,,,False,True,False,,,1770747393.6098998
+NET_0296_0000.nii.gz,1,2,2,True,0.0,0.0,0.0,False,False,False,,,1770747802.5470614
+NET_0299_0000.nii.gz,1,2,3,True,,,,False,False,False,,,1770747894.730354
+NET_0319_0000.nii.gz,1,3,2,False,3.0,3.0,2.0,False,False,False,,fase tardiva margini delle lesioni poco definiti valutaz soggettiva,1770748196.8747246
+NET_0318_0000.nii.gz,1,1,2,True,,,,False,False,False,,,1770748151.3621142
+NET_0316_0000.nii.gz,1,2,2,True,,,,False,False,False,,,1770748142.7468798
+NET_0315_0000.nii.gz,1,2,2,True,,,,False,False,False,,,1770748127.9307332
+NET_0314_0000.nii.gz,1,2,2,True,,,,False,False,False,,,1770748121.8754358
+NET_0170_0000.nii.gz,1,2,2,False,3.0,3.0,2.0,False,False,False,,,1770741422.5995374
+NET_0214_0000.nii.gz,1,2,2,False,1.0,3.0,3.0,False,False,False,,,1770744369.644714
+NET_0302_0000.nii.gz,1,2,2,True,,,,False,False,False,,,1770747990.0357907
+NET_0303_0000.nii.gz,1,2,2,True,,,,False,False,False,,,1770747999.962828
+NET_0304_0000.nii.gz,1,2,2,True,0.0,0.0,0.0,False,False,False,,,1770748039.7784688
+NET_0308_0000.nii.gz,1,2,2,True,,,,False,False,False,,,1770748050.090683
+NET_0311_0000.nii.gz,1,1,3,True,,,,True,False,False,,,1770748057.6592517
+NET_0312_0000.nii.gz,1,2,2,True,,,,False,False,False,,,1770748068.3466258
+NET_0322_0000.nii.gz,1,2,3,True,0.0,0.0,0.0,False,False,False,,,1770748297.8590171
+NET_0323_0000.nii.gz,1,2,3,True,,,,False,False,True,,,1770748303.3227942
+NET_0324_0000.nii.gz,1,2,2,True,0.0,0.0,0.0,False,True,False,,,1770748358.8670506
+NET_0150_0000.nii.gz,1,2,2,False,4.0,3.0,1.0,False,False,False,,,1770805549.977316
+NET_0166_0000.nii.gz,1,2,2,False,4.0,4.0,1.0,False,False,False,aria nello stomaco qualche artefatto su lobo sinistro,una lesione segmentata dubbia ma sospetta per metastasi,1770740497.1061203
+NET_0171_0000.nii.gz,1,1,2,True,0.0,0.0,0.0,False,False,False,,,1770742090.2753434
+NET_0218_0000.nii.gz,1,1,3,False,4.0,3.0,1.0,False,False,False,,bordi non ben definiti valutazione un po soggettiva,1770744572.332662
+NET_0227_0000.nii.gz,1,2,2,False,3.0,3.0,1.0,False,False,False,,altre metastasi visibili in arteriosa qui non si vedono,1770744964.421262
+NET_0325_0000.nii.gz,1,1,2,True,0.0,0.0,0.0,False,False,False,,,1770748386.5070896
+NET_0326_0000.nii.gz,1,2,2,True,0.0,0.0,0.0,False,False,False,,,1770748410.0669403
+NET_0327_0000.nii.gz,1,2,2,True,,,,False,False,False,,,1770748416.3555126
+NET_0329_0000.nii.gz,1,2,2,True,,,,False,False,False,,,1770748424.1311772
+NET_0330_0000.nii.gz,1,1,2,True,0.0,0.0,0.0,False,False,False,,,1770748451.9072366
+NET_0331_0000.nii.gz,1,2,2,True,,,,False,False,False,,,1770748462.7628536
+NET_0332_0000.nii.gz,1,2,2,True,,,,False,False,False,,,1770748470.9311724
+NET_0333_0000.nii.gz,1,2,2,True,0.0,0.0,0.0,False,False,False,,,1770748495.2601914
+NET_0334_0000.nii.gz,1,2,1,True,0.0,0.0,0.0,False,False,False,,,1770748538.442876
+NET_0337_0000.nii.gz,1,2,2,True,,,,False,False,False,,,1770748548.1393116
+NET_0338_0000.nii.gz,1,1,2,True,,,,False,False,False,,,1770748556.0671284
+NET_0339_0000.nii.gz,1,2,3,True,,,,False,False,False,,,1770748563.6515293
+NET_0341_0000.nii.gz,1,1,2,True,0.0,0.0,0.0,False,False,False,,,1770748731.195435
+NET_0342_0000.nii.gz,1,2,2,True,0.0,0.0,0.0,False,False,False,,,1770748755.1317358
+NET_0343_0000.nii.gz,1,2,2,True,,,,False,False,False,,,1770748772.6597102
+NET_0344_0000.nii.gz,1,2,2,True,0.0,0.0,0.0,False,False,False,,,1770748800.130988
+NET_0348_0000.nii.gz,1,1,2,True,,,,False,False,False,,,1770748835.5473542
+NET_0349_0000.nii.gz,1,2,2,True,,,,False,False,False,,,1770748853.132552
+NET_0350_0000.nii.gz,1,1,2,True,,,,False,False,False,,,1770748863.3317754
+NET_0351_0000.nii.gz,1,1,2,True,,,,False,False,False,,,1770748873.8992293
+NET_0353_0000.nii.gz,1,1,3,True,0.0,0.0,0.0,False,False,False,,,1770748927.6433375
+NET_0354_0000.nii.gz,1,2,2,True,,,,False,False,False,,,1770748937.0444744
+NET_0355_0000.nii.gz,1,2,3,True,,,,True,False,False,,,1770748954.1716793
+NET_0359_0000.nii.gz,1,2,2,True,0.0,0.0,0.0,False,False,False,,,1770749002.8035097
+NET_0361_0000.nii.gz,1,1,2,True,,,,False,False,False,,,1770749012.067726
+NET_0364_0000.nii.gz,1,2,2,True,0.0,0.0,0.0,False,False,False,,,1770749039.3396416
+NET_0365_0000.nii.gz,1,1,2,True,,,,False,False,False,,,1770749047.7485304
+NET_0366_0000.nii.gz,1,2,2,True,0.0,0.0,0.0,False,True,False,,,1770749078.2355146
+NET_0138_0000.nii.gz,1,2,2,False,4.0,4.0,2.0,False,False,False,,bordi non ben definiti segmentazione soggettiva,1770805493.0081584
+NET_0148_0000.nii.gz,1,2,3,False,3.0,3.0,1.0,True,True,False,,,1770805541.432396
+NET_0155_0000.nii.gz,1,2,2,False,4.0,3.0,2.0,False,False,False,,margini sfumati valutazione soggettiva,1770805579.064789
+NET_0357_0000.nii.gz,1,1,2,True,0.0,0.0,0.0,False,False,False,,,1770748982.3318152
+NET_0369_0000.nii.gz,1,2,1,True,,,,False,False,False,,,1770749087.1798086
+NET_0370_0000.nii.gz,1,2,2,True,,,,False,False,False,,,1770749094.7797017
+NET_0372_0000.nii.gz,1,2,2,True,,,,False,False,False,,,1770749101.803796
+NET_0373_0000.nii.gz,1,2,2,True,,,,False,False,False,,,1770749109.371643
+NET_0374_0000.nii.gz,1,2,2,True,0.0,0.0,0.0,False,False,False,,,1770749129.2199512
+NET_0376_0000.nii.gz,1,2,2,True,,,,False,False,False,,,1770749136.6118882
+NET_0377_0000.nii.gz,1,2,2,True,0.0,0.0,0.0,False,False,False,,,1770749157.9477437
+NET_0379_0000.nii.gz,1,2,2,True,0.0,0.0,0.0,False,False,False,,,1770749188.5323892
+NET_0380_0000.nii.gz,1,2,2,True,,,,False,False,False,,,1770749193.5557091
+NET_0381_0000.nii.gz,1,2,2,True,,,,False,False,False,,,1770749200.8758645
+NET_0382_0000.nii.gz,1,2,2,True,0.0,0.0,0.0,False,False,False,,,1770749227.9637103
+NET_0383_0000.nii.gz,1,2,2,True,,,,False,False,False,,,1770749262.1556437
+NET_0386_0000.nii.gz,1,2,2,True,0.0,0.0,0.0,False,False,False,,,1770749322.411999
+NET_0389_0000.nii.gz,1,2,2,True,,,,False,False,False,,,1770749367.2116284
+NET_0402_0000.nii.gz,1,1,2,True,0.0,0.0,0.0,False,False,False,,,1770749546.1960857
+NET_0403_0000.nii.gz,1,1,3,True,,,,False,False,False,,,1770749556.5324862
+NET_0271_0000.nii.gz,1,1,3,False,4.0,3.0,2.0,False,False,False,,bordi lesione piu grande non ben definiti valutazione soggettiva,1770747238.9537249
+NET_0352_0000.nii.gz,1,2,2,False,3.0,3.0,1.0,False,False,False,,,1770748902.7155182
+NET_0387_0000.nii.gz,1,2,2,True,0.0,0.0,0.0,False,False,False,,,1770749355.612422
+NET_0393_0000.nii.gz,1,2,2,False,4.0,4.0,1.0,False,True,False,,,1770749430.4439998
+NET_0394_0000.nii.gz,1,2,2,True,,,,True,False,False,,Le metastasi probabilm ci sono nb vedere RM e PET Tuttavia nella TC non si vedono io non le vedo,1770749489.667846
+NET_0397_0000.nii.gz,1,2,2,False,4.0,4.0,1.0,False,False,False,,,1770749504.9399846
+NET_0405_0000.nii.gz,1,2,2,True,,,,False,False,False,,,1770749631.260715
+NET_0410_0000.nii.gz,1,2,2,True,0.0,0.0,0.0,False,False,False,,,1770749762.7012336
+NET_0412_0000.nii.gz,1,2,2,True,,,,False,False,False,,,1770749799.2123597
+NET_0413_0000.nii.gz,1,2,2,True,0.0,0.0,0.0,False,False,False,,,1770749822.4762237
+NET_0416_0000.nii.gz,1,2,3,True,,,,False,False,False,,,1770750200.674225
+NET_0420_0000.nii.gz,1,2,2,True,0.0,0.0,0.0,False,False,False,,,1770750312.4474888
+NET_0422_0000.nii.gz,1,2,2,False,4.0,3.0,1.0,False,False,False,,,1770750395.3871498
+NET_0424_0000.nii.gz,1,1,2,False,3.0,4.0,1.0,False,False,False,,,1770750555.3469725
+NET_0425_0000.nii.gz,1,2,2,False,4.0,4.0,1.0,False,False,False,,,1770750575.3771422
+NET_0426_0000.nii.gz,1,2,2,True,0.0,0.0,0.0,False,False,False,,,1770750600.7222166
+NET_0428_0000.nii.gz,1,2,2,True,0.0,0.0,0.0,False,False,False,,,1770750626.7877228
+NET_0429_0000.nii.gz,1,2,2,True,0.0,0.0,0.0,False,False,False,,,1770750657.820142
+NET_0431_0000.nii.gz,1,2,2,False,4.0,4.0,1.0,False,False,False,,,1770750836.0192697
+NET_0432_0000.nii.gz,1,2,3,True,,,,False,True,False,,,1770750849.6432316
+NET_0437_0000.nii.gz,1,2,2,True,0.0,0.0,0.0,False,False,False,,,1770751008.1445484
+NET_0438_0000.nii.gz,1,2,2,True,0.0,0.0,0.0,False,False,False,,,1770751038.698325
+NET_0439_0000.nii.gz,1,1,2,True,,,,False,False,False,,,1770751047.2417696
+NET_0443_0000.nii.gz,1,2,2,True,0.0,0.0,0.0,False,False,False,,,1770751141.7162802
+NET_0444_0000.nii.gz,1,2,2,True,,,,False,False,False,,,1770751151.9250329
+NET_0445_0000.nii.gz,1,1,3,True,,,,False,False,False,,,1770751160.2940283
+NET_0447_0000.nii.gz,1,2,2,True,0.0,0.0,0.0,False,True,False,,,1770751222.2957008
+NET_0450_0000.nii.gz,1,2,2,True,0.0,0.0,0.0,False,False,False,,,1770797811.717199
+NET_0455_0000.nii.gz,1,2,2,True,,,,False,False,False,,,1770800410.245025
+NET_0456_0000.nii.gz,1,2,2,True,0.0,0.0,0.0,False,False,False,,,1770800457.0307312
+NET_0461_0000.nii.gz,1,2,2,True,,,,False,False,False,,,1770800615.8565266
+NET_0468_0000.nii.gz,1,2,2,True,,,,False,False,False,,,1770800844.9394274
+NET_0470_0000.nii.gz,1,2,3,True,,,,False,False,False,,,1770800889.900603
+NET_0471_0000.nii.gz,1,2,3,True,,,,False,False,True,,,1770800900.50115
+NET_0475_0000.nii.gz,1,2,2,True,,,,False,False,False,,,1770801015.3186386
+NET_0477_0000.nii.gz,1,2,2,True,0.0,0.0,0.0,False,False,False,,,1770801102.128229
+NET_0480_0000.nii.gz,1,2,2,True,,,,False,False,False,,,1770801181.8331404
+NET_0485_0000.nii.gz,1,2,2,True,,,,False,False,False,,,1770801594.5988889
+NET_0494_0000.nii.gz,1,1,2,True,,,,False,False,False,,,1770802011.5397196
+NET_0498_0000.nii.gz,1,2,2,True,0.0,0.0,0.0,False,False,False,,,1770802037.3003724
+NET_0265_0000.nii.gz,1,1,1,False,3.0,2.0,2.0,False,False,False,air in the colon,,1770746506.272982
+NET_0451_0000.nii.gz,1,2,2,False,4.0,3.0,1.0,False,False,False,,,1770797943.5815346
+NET_0479_0000.nii.gz,1,2,2,True,0.0,0.0,0.0,False,False,False,,,1770801173.6408863
+NET_0500_0000.nii.gz,1,2,2,True,0.0,0.0,0.0,False,False,False,,,1770802119.2453194
+NET_0504_0000.nii.gz,1,2,2,True,,,,False,False,False,,,1770802327.9121692
+NET_0505_0000.nii.gz,1,1,2,True,,,,True,False,False,,,1770802337.0084002
+NET_0506_0000.nii.gz,1,1,2,True,0.0,0.0,0.0,False,False,False,,,1770802368.5680258
+NET_0507_0000.nii.gz,1,2,2,True,,,,False,False,False,,,1770802383.0490465
+NET_0509_0000.nii.gz,1,2,2,True,0.0,0.0,0.0,False,False,False,,,1770802485.6257057
+NET_0510_0000.nii.gz,1,1,2,True,0.0,0.0,0.0,False,False,False,,,1770802515.1144774
+NET_0048_0000.nii.gz,1,1,1,False,3.0,1.0,5.0,False,False,False,,margini molto soggettivi,1770805037.2598958
+NET_0466_0000.nii.gz,1,2,2,True,0.0,0.0,0.0,False,False,False,,,1770800781.7950535
+NET_0467_0000.nii.gz,1,3,1,False,4.0,4.0,1.0,True,False,False,,,1770800835.21971
+NET_0482_0000.nii.gz,1,1,3,True,,,,False,False,False,,,1770801285.258053
+NET_0488_0000.nii.gz,1,2,2,False,3.0,3.0,1.0,False,False,False,,,1770801925.4105456
+NET_0502_0000.nii.gz,1,1,2,True,0.0,0.0,0.0,False,False,False,,,1770802165.182375
+NET_0515_0000.nii.gz,1,2,2,False,2.0,4.0,1.0,True,False,False,,segmentata sospetta metastasi,1770803515.1739843
+NET_0517_0000.nii.gz,1,1,2,True,0.0,0.0,0.0,False,False,False,,,1770803588.9662063
+NET_0523_0000.nii.gz,1,2,2,True,,,,False,False,False,,,1770803905.498041
+NET_0041_0000.nii.gz,1,1,2,False,3.0,3.0,1.0,False,False,False,,non sicura che siano metastasi ma probabile perche in tc successive ci sono metastasi nelle stesse aree,1770804920.83537
+NET_0076_0000.nii.gz,1,1,2,False,3.0,2.0,2.0,False,False,False,,margini mal definiti,1770805171.605293
+NET_0092_0000.nii.gz,1,2,2,False,3.0,2.0,2.0,False,False,False,,margini non definiti in portale per la lesione a sn fatto affidamento su AI,1770805290.798361
+NET_0133_0000.nii.gz,1,3,2,False,4.0,3.0,2.0,False,True,False,,,1770805459.743899
+NET_0465_0000.nii.gz,1,2,1,False,4.0,3.0,1.0,False,False,False,,,1770800732.234271
+NET_0067_0000.nii.gz,1,1,2,False,4.0,4.0,1.0,False,False,False,,,1770805117.4130025
+NET_0161_0000.nii.gz,1,2,2,False,4.0,4.0,1.0,False,False,False,mdc x os artefatti su segmento sei,,1770805593.1929705
+NET_0199_0000.nii.gz,1,1,2,False,5.0,4.0,1.0,True,False,False,,,1770743317.6648183
+NET_0226_0000.nii.gz,1,2,2,False,3.0,3.0,1.0,False,False,False,,difficolta perche metastasi visibili in arteriosa qui non si vedono,1770744893.3013551
+NET_0239_0000.nii.gz,2,1,3,False,3.0,2.0,1.0,True,True,False,,margini non ben definiti,1770745363.7662652
+NET_0246_0000.nii.gz,1,2,2,False,3.0,2.0,3.0,False,False,False,,Area disomogenea vicino cisti grande vedo disomogeneita ma non i bordi quindi margini abb arbitrari Vedere anche RM,1770745798.727069
+NET_0384_0000.nii.gz,1,2,1,False,4.0,4.0,1.0,False,False,False,,,1770749301.7640145
+NET_0411_0000.nii.gz,1,2,2,False,3.0,4.0,1.0,False,False,False,,,1770749785.012282
+NET_0414_0000.nii.gz,1,1,2,False,4.0,3.0,1.0,False,False,False,,,1770749856.444308
+NET_0469_0000.nii.gz,1,2,2,False,5.0,4.0,1.0,False,False,False,,,1770800870.2929256
+NET_0009_0000.nii.gz,1,1,1,False,4.0,4.0,1.0,False,False,False,,,1770804706.3924532
+NET_0074_0000.nii.gz,1,1,1,False,2.0,3.0,2.0,True,False,False,,inserita lesione grande a margini spesso non ben definiti,1770805156.549121
+NET_0079_0000.nii.gz,1,2,2,False,3.0,3.0,2.0,False,False,False,,,1770805189.0050344
+NET_0089_0000.nii.gz,1,2,2,False,4.0,3.0,1.0,False,False,False,,margini non definiti lasciata pressoche come AI,1770805275.6540525
+NET_0129_0000.nii.gz,1,1,1,False,3.0,3.0,1.0,False,False,False,,Lesione che era metastasi ora a contenuto chiaramente fluido e non captante a PET non segmentata Altra piccola lesione similcistica non captante in precedenza dubbia metastasi non segmentata,1770805448.7357426
+NET_0136_0000.nii.gz,1,1,2,,4.0,3.0,1.0,False,False,False,,,1768825526.5704205
+NET_0137_0000.nii.gz,1,2,3,False,3.0,3.0,1.0,False,False,True,,,1770805486.1359322
+NET_0218_0000.nii.gz,1,1,2,,5.0,4.0,1.0,False,False,False,,,1768834488.201774
+NET_0266_0000.nii.gz,1,2,2,False,4.0,4.0,1.0,False,False,False,,,1770746987.9533591
+NET_0274_0000.nii.gz,1,1,1,True,,,,False,False,False,,nb fegato pressoche completamente incluso (manca una sola slice cranialmente),1768838502.5739524
+NET_0401_0000.nii.gz,1,2,2,False,4.0,3.0,2.0,False,False,False,,,1770749514.0609295
+NET_0417_0000.nii.gz,1,2,2,False,3.0,4.0,1.0,False,False,False,,altre piccole che non sono sicura siano metastasi non segmentate,1770750284.1899836
+NET_0446_0000.nii.gz,1,2,2,False,4.0,4.0,1.0,False,True,False,,,1770751190.9027357
+NET_0448_0000.nii.gz,1,2,2,False,4.0,2.0,1.0,False,False,False,,,1770751623.7397254
+NET_0459_0000.nii.gz,1,2,2,False,4.0,3.0,1.0,True,False,False,,,1770800557.6793816
+NET_0029_0000.nii.gz,1,1,2,False,2.0,3.0,4.0,False,False,False,,margini spesso non ben definiti + moltissime lesioni piccole non ben visibili in fase arteriosa e facilmente sfuggite alla segmentazione,1770804851.0744972
+NET_0169_0000.nii.gz,1,1,1,False,4.0,4.0,1.0,True,False,False,,lesione a densita fluida sovrafluida segmentata perche aumentata di dimensioni e perche ipodensa ma non troppo,1770740904.9652622
+NET_0441_0000.nii.gz,1,1,2,False,3.0,4.0,2.0,False,False,False,,margini non sempre ben definiti,1770751106.3158965
+NET_0449_0000.nii.gz,1,2,2,False,1.0,4.0,1.0,False,False,False,,,1770797675.1493022
+NET_0472_0000.nii.gz,1,1,2,False,4.0,4.0,1.0,False,False,False,,,1770800935.7335336
+NET_0474_0000.nii.gz,1,2,2,False,4.0,4.0,2.0,False,False,False,,,1770801007.2468352
+NET_0483_0000.nii.gz,1,1,2,False,3.0,4.0,1.0,False,False,False,,,1770801321.3945687
+NET_0486_0000.nii.gz,1,2,2,False,2.0,3.0,1.0,False,False,False,,margini non ben definiti,1770801619.6315124
+NET_0104_0000.nii.gz,1,1,2,False,3.0,3.0,3.0,False,False,False,,,1770805351.5988572
+NET_0178_0000.nii.gz,1,2,2,False,3.0,3.0,1.0,False,False,False,,margini non ben definiti fatto affidamento su AI,1770742604.7819333
+NET_0194_0000.nii.gz,1,1,2,False,3.0,2.0,1.0,False,False,False,aria stomaco artefatti lobo sn,margini non definiti,1770743117.0879536
+NET_0232_0000.nii.gz,1,2,2,False,4.0,3.0,1.0,False,False,False,,,1770745287.5426807
+NET_0258_0000.nii.gz,1,2,3,False,3.0,3.0,1.0,False,False,False,,,1770745922.6800845
+NET_0271_0000.nii.gz,1,1,3,,3.0,3.0,1.0,False,False,False,,,1769019801.3067808
+NET_0491_0000.nii.gz,1,2,2,False,3.0,3.0,1.0,False,False,False,,,1770801970.7400267
+NET_0514_0000.nii.gz,1,2,2,False,3.0,4.0,0.0,False,True,False,,,1770803288.9067054
+NET_0521_0000.nii.gz,1,2,2,False,3.0,3.0,1.0,False,False,False,,,1770803828.8165772
+NET_0522_0000.nii.gz,1,2,2,False,4.0,4.0,1.0,False,False,False,,,1770803899.7456052
+NET_0001_0000.nii.gz,1,1,2,False,4.0,5.0,1.0,False,False,False,,segmentata lesione anche se post ablazione in quanto non marcatamente ipodensa e captante a PET ,1770804657.2322624
+NET_0287_0000.nii.gz,1,2,2,False,3.0,4.0,3.0,True,True,False,,,1770747574.1380882
+NET_0294_0000.nii.gz,1,2,3,False,3.0,2.0,0.0,False,False,False,aria nel colon artefatti su segmento sei e cinque,lesioni mal definite in portale,1770747688.4185462
+NET_0340_0000.nii.gz,1,2,3,False,4.0,4.0,1.0,False,True,False,,,1770748686.643161
+NET_0408_0000.nii.gz,1,2,2,False,3.0,4.0,0.0,False,True,False,,,1770749729.028592
+NET_0457_0000.nii.gz,1,2,3,False,3.0,4.0,2.0,False,False,False,,,1770800504.3515315
+NET_0503_0000.nii.gz,1,2,2,False,4.0,3.0,1.0,False,False,False,,,1770802320.4317892
+NET_0141_0000.nii.gz,1,2,3,False,3.0,4.0,3.0,False,False,False,,Lesioni confluenti in lesione disomogenea a bordi mal definiti quindi definizione dei margini un po' soggettiva Parte similcistica completamente necrotica esclusa ,1770805505.6402676
+NET_0433_0000.nii.gz,1,2,2,False,2.0,4.0,1.0,False,False,False,aria nel colon,NB aspetto disomogeneo del fegato es vedere lobo dx  im ada sei trentuno a trentanove in sospetta metastatizzazione diffusa Ma le lesioni focali riconoscibili sono poche e piccole In questo caso secondo me il volume delle metastasi segmentate non riflette il TTV,1770750946.8955488
+NET_0478_0000.nii.gz,1,2,2,False,4.0,4.0,1.0,False,True,False,,,1770801143.776218
+NET_0481_0000.nii.gz,1,2,2,False,3.0,2.0,1.0,False,False,False,,NB fegato non chiaramente sovvertito ma  lievemente disomogeneo per metastatizzazione diffusa Lesioni non delimitabili in TC quindi la segmentazione di quelle riconoscibili non riflette il TTV Manca ultima slice sopra ma fegato pressoche completamente compreso,1770801263.042833
+NET_0499_0000.nii.gz,1,2,2,False,4.0,3.0,1.0,False,False,False,,,1770802066.660608
+NET_0013_0000.nii.gz,1,1,2,False,3.0,2.0,2.0,False,False,False,aria nello stomaco artefatti lobo sinistro,margini non sempre chiari,1770804760.7300615
+NET_0081_0000.nii.gz,1,2,2,False,3.0,3.0,2.0,False,False,False,,lesione piu grande a margini non ben definiti,1770805215.2374785
+NET_0090_0000.nii.gz,1,2,2,False,3.0,2.0,2.0,False,False,False,,,1770805283.334324
+NET_0058_0000.nii.gz,1,2,2,False,3.0,2.0,1.0,False,False,False,,,1770805088.3321612
+NET_0105_0000.nii.gz,1,2,3,False,3.0,3.0,2.0,False,False,False,,,1770805359.5906606
+NET_0207_0000.nii.gz,1,2,2,False,3.0,4.0,2.0,False,False,False,,,1770743783.5467565
+NET_0404_0000.nii.gz,1,2,2,False,3.0,3.0,2.0,False,False,False,,,1770749573.4443147
+NET_0175_0000.nii.gz,1,1,2,False,3.0,3.0,2.0,False,False,False,,,1770742175.7964034
+NET_0415_0000.nii.gz,1,2,2,False,3.0,3.0,2.0,False,False,False,,,1770750190.6182108
+NET_0453_0000.nii.gz,1,2,2,False,4.0,3.0,2.0,False,False,False,,,1770800400.901228
+NET_0511_0000.nii.gz,1,2,1,False,4.0,3.0,2.0,False,False,False,,margini poco chiari,1770802567.234138
+NET_0512_0000.nii.gz,1,2,2,False,4.0,4.0,1.0,False,False,False,,,1770802611.1387274
+NET_0513_0000.nii.gz,1,2,3,False,3.0,3.0,2.0,False,False,False,,,1770803142.026014
+NET_0513_0000.nii.gz,1,2,3,,3.0,3.0,2.0,False,False,False,,,1769622533.2225268
+NET_0198_0000.nii.gz,1,2,2,False,4.0,3.0,1.0,True,False,False,,,1770743275.8085656
+NET_0073_0000.nii.gz,1,1,2,False,3.0,2.0,2.0,False,True,False,,margini poco definiti dove dubbi lasciata come AI,1770805148.0533342
+NET_0082_0000.nii.gz,1,2,3,False,3.0,3.0,3.0,False,False,False,,definizione dei margini arbitraria,1770805223.0938773
+NET_0114_0000.nii.gz,1,1,1,False,3.0,2.0,3.0,False,False,False,air in the duodenum,Difficile perche moltissime lesioni tutte sfumate Alcune piccole aggiunte altre no perche potrebbero essere vasi,1770805380.1433115
+NET_0126_0000.nii.gz,1,2,2,False,3.0,2.0,4.0,False,False,False,,molte lesioni molte a margini poco chiari Fatto molto affidamento su AI A parte lesioni focali che si possono individuare fegato tutto molto disomogeneo e la segmentazione delle lesioni focali sottostima il TTV Vedere su pacs come si percepisce di piu la disomogeneita diffusa,1770805438.6479988
+NET_0493_0000.nii.gz,1,2,2,False,4.0,4.0,1.0,False,False,False,,,1770801997.515659
+NET_0261_0000.nii.gz,1,2,3,False,3.0,2.0,4.0,False,False,False,,margini difficili valutaz soggettiva,1770746054.7758343
+NET_0298_0000.nii.gz,1,1,2,False,4.0,3.0,3.0,False,True,False,,,1770747882.626778
+NET_0345_0000.nii.gz,2,2,2,False,4.0,4.0,2.0,False,False,False,,,1770748826.099586
+NET_0519_0000.nii.gz,1,2,2,False,4.0,3.0,1.0,False,False,False,,segmentate lesioni similmicrocistiche che derivano da metastasi probabilmente che hanno risposto ma io non posso sapere se c e ancora tessuto vitale soprattutto in lesioni cosi piccole,1770803760.6327162
+NET_0520_0000.nii.gz,1,2,2,False,0.0,0.0,0.0,False,False,False,,,1770803806.2643318
+NET_0038_0000.nii.gz,1,1,2,False,4.0,4.0,1.0,False,False,False,,,1770804905.3787875
+NET_0083_0000.nii.gz,1,2,2,False,4.0,3.0,1.0,False,False,False,,,1770805231.981825
+NET_0275_0000.nii.gz,1,1,1,False,4.0,3.0,1.0,False,False,False,,,1770747383.714426
+NET_0043_0000.nii.gz,1,1,1,False,4.0,4.0,1.0,True,False,False,,Non sempre bordi ben definiti in arteriosa Lesione grande non sapendo come segmentarla lasciata pressoche come AI,1770804929.667208
+NET_0179_0000.nii.gz,1,2,2,False,3.0,3.0,2.0,False,False,False,,,1770742634.805794
+NET_0391_0000.nii.gz,1,2,3,False,4.0,4.0,2.0,False,False,False,,,1770749392.9159608
+NET_0406_0000.nii.gz,1,1,3,False,4.0,3.0,2.0,False,False,False,,,1770749699.1646085
+NET_0460_0000.nii.gz,1,1,2,False,4.0,4.0,1.0,False,False,False,,,1770800598.8320603
+NET_0487_0000.nii.gz,1,2,3,False,4.0,4.0,2.0,False,False,False,,,1770801688.4877925
+NET_0487_0000.nii.gz,1,2,3,,4.0,4.0,2.0,False,False,False,,,1770059677.826575
+NET_0120_0000.nii.gz,1,1,2,False,4.0,4.0,1.0,False,False,False,,,1770805410.559342
+NET_0125_0000.nii.gz,1,1,1,False,4.0,2.0,3.0,False,False,False,,Postembolizzazione Ma buona parte del fegato metastatico Data la diffusione difficile distinguere necrosi postembolizzazione da tessuto potenzialmente vitale Rimossa solo l area similcistica a sinistra che e chiaramente esito ablazione Area che sembra avere debole presa di contrasto inserita,1770805430.6001546
+NET_0167_0000.nii.gz,1,1,2,False,3.0,2.0,2.0,False,False,False,,scelta dei margini in arteriosa difficile e arbitraria lasciata pressoche uguale a AI perche non farei meglio,1770740576.515016
+NET_0201_0000.nii.gz,1,2,3,False,3.0,4.0,1.0,False,False,False,,Lesione tra fegato e rene dx descritta sempre come retroperitoneale mai come epatica va a crescere nel fegato ma non sembra originare dal fegato pertanto rimossa Tuttavia guardando i precedenti di circa 7 anni prima rimane il dubbio che origini dal fegato,1770743489.634199
+NET_0242_0000.nii.gz,1,2,2,False,3.0,2.0,4.0,True,False,False,,,1770745535.950951
+NET_0262_0000.nii.gz,1,2,2,False,3.0,2.0,2.0,False,False,False,,,1770746292.008253
+NET_0524_0000.nii.gz,1,2,2,False,4.0,3.0,2.0,False,False,False,aria nello stomaco artefatti su metastasi lobo sinistro,,1770803933.6254866
+NET_0115_0000.nii.gz,1,2,3,False,4.0,3.0,1.0,False,True,False,,"Postembolizzazione Dubbi nello stabilire quale sia tessuto non del tutto necrotico e ancora vitale Vedere progressione ultime tc
+",1770805392.0155134
+NET_0134_0000.nii.gz,1,1,1,False,3.0,1.0,3.0,False,False,True,,In casi come questo e' diffusamente metastatico tutto il fegato guardare anche altre fasi Sottostima il TTV,1770805466.2876787
+NET_0182_0000.nii.gz,1,2,2,False,3.0,1.0,2.0,True,False,False,,problematiche le lesioni sfumate e quelle piccole,1770742797.390553
+NET_0243_0000.nii.gz,1,1,1,False,4.0,2.0,1.0,True,False,False,,Metastatizzazione estesa diffusa Margini veri probabilmente ancora piu estesi,1770745614.8549595
+NET_0270_0000.nii.gz,1,2,3,False,3.0,2.0,3.0,False,False,False,,bordi vaghi,1770747137.9945023
+NET_0101_0000.nii.gz,1,1,1,False,4.0,3.0,1.0,True,False,False,,margini poco chiari molto affidamento su AI,1770805314.8541088
+NET_0508_0000.nii.gz,1,1,2,False,3.0,1.0,2.0,False,True,False,,Margini poco chiari quindi fatto molto affidamento su AI Fegato tutto molto disomogeneo quindi in realta TTV molto piu elevato risp a quello delle lesioni segmentate,1770802455.473797
+NET_0066_0000.nii.gz,1,2,3,False,4.0,4.0,2.0,True,True,False,,,1770805109.437096
+NET_0321_0000.nii.gz,1,2,2,False,2.0,3.0,1.0,True,True,True,,,1770748235.9229207
+NET_0421_0000.nii.gz,1,2,2,False,4.0,3.0,1.0,False,False,False,,,1770750379.5296135
+NET_0107_0000.nii.gz,1,2,2,False,3.0,3.0,2.0,False,False,False,,,1770805367.0630338
+NET_0113_0000.nii.gz,1,2,3,False,3.0,2.0,1.0,True,False,False,,margini non chiari altro caso in cui probabilmente diffusamente infiltrato pressoche tutto il fegato Anche dove non segmento chiare lesioni Lasciata come AI,1770805373.8230138
+NET_0152_0000.nii.gz,1,1,1,False,3.0,3.0,2.0,False,False,False,,margini spesso approssimativi,1770805567.2727115
+NET_0184_0000.nii.gz,1,2,3,False,2.0,1.0,1.0,True,False,False,,dove ha segmentato AI sicuramente malattia tuttavia lesioni sicuramente piu estese tuttavia margini non chiari In aggiunta portale che sembra quasi una tardiva,1770742910.3193588
+NET_0279_0000.nii.gz,1,1,3,False,2.0,1.0,2.0,True,False,False,aria flessura colica dx,Fatto molto affidamento su AI perche non si distinguono bene i margini Difficile distinguere lesioni piccole da vasi,1770747522.3142152
+NET_0010_0000.nii.gz,1,1,1,False,2.0,2.0,1.0,True,True,False,,margini non chiari,1770804739.425357
+NET_0124_0000.nii.gz,1,1,1,False,1.0,1.0,1.0,True,False,True,,margini non chiari tc di scarsa qualita metastatizzazione diffusa vedere anche portale io segmenterei quasi tutto il fegato,1770805421.6953385
+NET_0196_0000.nii.gz,1,2,2,False,2.0,1.0,2.0,True,False,True,,margini non definiti,1770743174.3522658
+NET_0241_0000.nii.gz,1,2,3,False,1.0,1.0,2.0,False,False,True,,non attendibile fegato tutto disomogeneo quindi verosimilmente tutto metastatico ma non vedo bordi da poter segmentare,1770745462.8703654
+NET_0254_0000.nii.gz,1,2,2,False,2.0,1.0,3.0,True,False,False,,margini mal visibili,1770745885.3194103
+NET_0516_0000.nii.gz,1,2,2,False,3.0,2.0,1.0,True,False,False,,,1770803559.061834
+NET_0525_0000.nii.gz,1,2,2,False,1.0,2.0,4.0,True,False,True,,le metastasi non si vedono bene margini molto approssimativi,1770803953.059311
+NET_0116_0000.nii.gz,1,1,1,False,2.0,1.0,2.0,True,False,False,,margini indefiniti,1770805399.3908408
+NET_0172_0000.nii.gz,1,1,2,False,2.0,1.0,1.0,True,False,True,,,1770742141.7239988
+NET_0244_0000.nii.gz,1,2,2,False,2.0,1.0,2.0,True,False,True,,,1770745667.8467095
+NET_0164_0000.nii.gz,1,2,2,False,3.0,4.0,1.0,False,False,False,,segmentata la lesione ipodensa piu grande perche i margini lasciano dubbi e e su di essi si vedra la presa di contrasto in successivi esami,1770740388.3052726
+NET_0300_0000.nii.gz,1,1,1,False,4.0,3.0,1.0,True,True,False,,,1770747969.322524
+NET_0520_0000.nii.gz,1,2,2,True,,,,False,False,False,,,1770317956.742156
+NET_0484_0000.nii.gz,1,2,2,False,3.0,2.0,1.0,True,False,True,,,1770801587.9745567
+NET_0017_0000.nii.gz,1,1,2,False,2.0,1.0,1.0,False,False,False,,disomogeneita piu diffusa rispetto alle aree segmentabili quindi inattendibile stima del volume tumorale totale,1770804797.3465075
+NET_0163_0000.nii.gz,1,2,3,FALSE,1.0,1.0,2.0,True,False,False,,altro caso in il fegato e tutto diffusamente metastatico nb vedere su pacs,1770805605.920797
+NET_0313_0000.nii.gz,1,1,2,False,3.0,2.0,1.0,True,True,False,aria flessura colica destra da artefatti su segmento sei,,1770748111.7467344
+NET_0452_0000.nii.gz,1,2,3,False,3.0,3.0,1.0,False,False,False,,Sicuramente non segmentate tante metastasi piccole Spesso dubbi tra metastasi piccole e dotti biliari ectasici,1770800342.245275
+NET_0463_0000.nii.gz,1,1,2,False,3.0,2.0,1.0,True,False,True,,stato post embolizzazione rimosse alcune lesioni ipodense perche non captano a pet e nelle tc successive diventano calcifiche,1770800686.394267
+NET_0473_0000.nii.gz,1,2,2,False,1.0,1.0,1.0,True,False,True,,epatomegalia per metastasi epatiche diffuse lasciata come AI ma volume non attendibile,1770800961.9824588
+NET_0476_0000.nii.gz,1,1,2,False,3.0,3.0,1.0,True,False,False,,,1770801093.1515148
+NET_0295_0000.nii.gz,1,1,2,False,2.0,1.0,2.0,True,False,False,,,1770747762.44229
