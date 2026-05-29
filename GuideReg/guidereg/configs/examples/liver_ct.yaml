@@ -1,0 +1,39 @@
+dataset:
+  input_csv: data/example_pairs.csv
+
+columns:
+  subject_id:        SubjectKeyRadiology
+  scan_date:         ExamDate
+  fixed_image:       fixed_image
+  moving_image:      moving_image
+  fixed_organ_mask:  fixed_organs
+  moving_organ_mask: moving_organs
+
+output:
+  directory: outputs_new/
+
+registration:
+  stages:
+    - initial
+    - rigid
+  #use_masks:    true
+  fixed_label:  5
+  moving_label: 5
+
+initial:
+  parameter_file: configs/initial/default.txt
+
+rigid:
+  parameter_file: configs/rigid/default.txt
+
+masks:
+  use_dilation:  true
+  dilation_radius: 5
+
+saving:
+  save_initial_registered_mask: false
+  save_rigid_registered_mask:   true
+
+execution:
+  backend: multiprocessing #sequential
+  num_workers: 4

@@ -1,0 +1,18 @@
+dataset:
+  input_csv: data/registration_pairs_clean.csv
+
+columns:
+  subject_id: SubjectKeyRadiology
+  scan_date: ExamDate
+  moving_tumor_mask: moving_lesion_seg
+
+output:
+  directory: /mnt/rhea/data_private/IRBd23-231/GEPNETs/contrast_phase/registered_images
+
+propagation:
+  stages:
+    - initial
+    - rigid
+
+  output_name:
+    propagated_tumor.nii.gz

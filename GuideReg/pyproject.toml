@@ -1,0 +1,22 @@
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "GuideReg"
+version = "0.1.0"
+description = "Guided medical image registration framework"
+
+authors = [
+    {name = "Laura Jovani Estacio Cerquin"}
+]
+
+dependencies = [
+    "numpy",
+    "pandas",
+    "pyyaml",
+    "tqdm"
+]
+
+[project.scripts]
+guidereg = "guidereg.main:main"
