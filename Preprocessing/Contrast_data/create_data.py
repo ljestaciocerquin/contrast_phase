@@ -32,8 +32,7 @@ def files_load(data_dir, sample=None):
 
     dataset = dataset[
         (dataset.contrast.isin(['Arterial', "Portal", "Non-contrast"])) &
-        (dataset.is_liver_imaged.isin(["Yes", "Partially"])) &
-        (dataset.phase_timing != '0.0')
+        (dataset.is_liver_imaged.isin(["Yes", "Partially"])) 
     ]
 
     dataset.loc[dataset["contrast"] == "Non-contrast", "phase_timing"] = None
@@ -174,7 +173,7 @@ def save_final_dataset(dataset, output_root, save_root):
 
 def main():
     # -------- Load paired data --------
-    data_dir = "/projects/net_contrast_classification/contrast_phase/data/cleaned_data_1.csv"
+    data_dir = "/projects/net_contrast_classification/contrast_phase/data/cleaned_data/final_data.csv"
 
     data = load_and_split(data_dir)
 

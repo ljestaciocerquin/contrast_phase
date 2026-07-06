@@ -5,7 +5,7 @@
 #SBATCH --ntasks=1
 #SBATCH --cpus-per-task=4
 #SBATCH --mem=30G
-#SBATCH --time=3-00:00:00
+#SBATCH --time=1-00:00:00
 #SBATCH --qos=rtx_qos
 #SBATCH --array=0-29
 #SBATCH --output=/projects/net_contrast_classification/jobs/preprocessing/paired_data/preprocess_%A_%a.out

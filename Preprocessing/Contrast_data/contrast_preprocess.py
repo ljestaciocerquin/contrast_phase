@@ -3,7 +3,7 @@ import os, torch
 import pandas as pd
 import numpy as np
 from monai.transforms import (Compose, LoadImage, Resized, Spacingd, 
-                              ScaleIntensityRange, RandFlipd, RandRotated, 
+                              ScaleIntensityRange, RandRotated, 
                               RandGaussianNoised, RandScaleIntensityd, RandAffined)
 
 import torch.nn.functional as F
@@ -61,10 +61,10 @@ class Preprocess3D:
                                         RandAffined(keys=["image", "mask"],                 # random affine with translation and scaling
                                                     mode=["bilinear", "nearest"],
                                                     padding_mode='reflection',
-                                                    translate_range=(3,3,3),                # randomly select pixel/voxel to translate for every spatial dims
-                                                    scale_range=(0.05,0.05,0.05),           # randomly select the scale factor to translate for every spatial dims
-                                                    shear_range=(0.05,0.05,0.05),
-                                                    prob=0.3,
+                                                    translate_range=(5,5,5),                # randomly select pixel/voxel to translate for every spatial dims
+                                                    scale_range=(0.1,0.1,0.1),           # randomly select the scale factor to translate for every spatial dims
+                                                    shear_range=(0.1,0.1,0.1),
+                                                    prob=0.7,
                                                     allow_missing_keys=True
                                                 )
                                     ])
@@ -226,7 +226,7 @@ class Preprocess3D:
                 samples = [(image, organ_array)]
 
                 if self.augment and row["split"] == "train":
-                    samples = self.augmentation(image, organ_array, idx, num_aug = 20)
+                    samples = self.augmentation(image, organ_array, idx, num_aug = 10)
 
                 for i, (img, mask) in enumerate(samples):
                     suffix = "" if i == 0 else f"_aug{i}"

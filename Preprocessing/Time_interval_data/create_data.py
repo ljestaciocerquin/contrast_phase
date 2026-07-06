@@ -25,10 +25,10 @@ def create_paired_data(dataset):
         (dataset.phase_timing != "0.0")
     ].copy()
 
-    # Convert time once
-    dataset["AcquisitionTime_sec"] = pd.to_timedelta(
-        dataset["AcquisitionTime"]
-    ).dt.total_seconds()
+    # # Convert time once
+    # dataset["AcquisitionTime_sec"] = pd.to_timedelta(
+    #     dataset["AcquisitionTime"]
+    # ).dt.total_seconds()
 
     # Keep only exams with both phases
     required_phases = {"Arterial", "Portal"}
@@ -196,7 +196,7 @@ def final_dataset(dataset, output_root):
 
 def main():
     # -------- Load paired data --------
-    data_dir = "/projects/net_contrast_classification/contrast_phase/data/cleaned_data/cleaned_data.csv"
+    data_dir = "/projects/net_contrast_classification/contrast_phase/data/cleaned_data/final_data.csv"
 
     paired_data = load_and_split(data_dir)
 
@@ -205,10 +205,10 @@ def main():
 
     paired_data = final_dataset(paired_data, output_root)
 
-    filtered_data = filter_existing(paired_data) 
+    # filtered_data = filter_existing(paired_data) 
 
-    if len(filtered_data) < len(paired_data):
-        filtered_data.to_csv("/projects/net_contrast_classification/contrast_phase/Preprocessing/Time_interval_data/missing_paired_preprocessed_data.csv")
+    # if len(filtered_data) < len(paired_data):
+    #     filtered_data.to_csv("/projects/net_contrast_classification/contrast_phase/Preprocessing/Time_interval_data/missing_paired_preprocessed_data.csv")
     
     paired_data.to_csv(save_root, index=False) 
 
