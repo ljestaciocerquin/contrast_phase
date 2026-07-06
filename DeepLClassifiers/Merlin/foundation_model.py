@@ -85,7 +85,7 @@ def main():
     # -------------------------------------------------------------------------------------------------------------
     
 
-    model = MerlinModel(num_classes=len(le.classes_), dropout_rate=0.2)
+    model = MerlinModel(num_classes=len(le.classes_), dropout_rate=0.3)
 
 
     print(f"\nTraining for task:{label_name} using Merlin embedding\n")

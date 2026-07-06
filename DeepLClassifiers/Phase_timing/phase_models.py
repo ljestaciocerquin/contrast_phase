@@ -9,7 +9,6 @@ from torch.nn import CrossEntropyLoss
 import torch.nn.functional as F
 import matplotlib.pyplot as plt
 import warnings
-
 import sys
 sys.path.append("/projects/net_contrast_classification/contrast_phase")
 from DeepLClassifiers.Contrast.contrast_models import PTDataset, evaluate_model, CNN8, ResNet
@@ -19,6 +18,8 @@ seed = 42
 torch.manual_seed(seed)
 np.random.seed(seed)
 random.seed(seed)
+
+
 
 class FocalLoss(nn.Module):
     def __init__(self, alpha=None, gamma=2.0, reduction="mean"):
@@ -100,7 +101,11 @@ class OrdinalFocalLoss(nn.Module):
 
 def class_weights_calculation(data_dir, split = "train", label_name="phase"):
     data = pd.read_csv(data_dir)
-    train_data = data[data["split"] == split]
+    train_data = data[
+                        (data["split"] == split) &
+                        (data["phase"] != "Non-contrast")
+                    ].reset_index(drop=True)# Exclude non-contrast class for phase timing task
+    
     label_counts = train_data[label_name].value_counts().sort_index()
     total_samples = len(train_data)
     num_classes = len(label_counts)
@@ -247,11 +252,11 @@ def train_cnn(model,
                     f", OrdinalFocalLoss (gamma={loss_fn.focal.gamma}, "
                     f"lambda_ordinal={loss_fn.lambda_ordinal})"
                 )
-                gamma_str = f"g_{int(loss_fn.focal.gamma)}"
+                gamma_str = f"g{int(loss_fn.focal.gamma)}"
 
             elif isinstance(loss_fn, FocalLoss):
                 loss_str = f", FocalLoss (gamma={loss_fn.gamma})"
-                gamma_str = f"g_{int(loss_fn.gamma)}"
+                gamma_str = f"g{int(loss_fn.gamma)}"
 
 
             # ---- Loss curve ----
@@ -300,7 +305,7 @@ def main():
     batch_size = 2
     epochs = 50
     dropout_rate = 0.2
-    gamma = 2.0
+    lambda_ordinal = 0.3
 
 
     model_map = {0: "ResNet10 gamma = 2.0",
@@ -335,13 +340,12 @@ def main():
 
     if model_name.split(' gamma = ')[0] == "ResNet10":
         model = ResNet(num_classes = len(le.classes_), dropout_rate=dropout_rate)
+        gamma = float(model_name.split(' gamma = ')[1])
     
     elif model_name.split(' gamma = ')[0] == "CNN8":
         # Simple 3D CNN trained from scratch
         model = CNN8(num_classes=len(le.classes_), dropout_rate=dropout_rate)
-
-    # else:
-    #     model = MerlinModel(num_classes=len(le.classes_), dropout_rate=0.2)
+        gamma = float(model_name.split(' gamma = ')[1])
 
 
     save_path = "/projects/net_contrast_classification/contrast_phase/DeepLClassifiers/Phase_timing"
@@ -350,10 +354,10 @@ def main():
     class_weights = class_weights_calculation(data_dir)
     print("Class weights:", class_weights, flush=True)
 
-    loss_fn = OrdinalFocalLoss(alpha=class_weights, gamma=gamma)
+    loss_fn = OrdinalFocalLoss(alpha=class_weights, gamma=gamma, lambda_ordinal=lambda_ordinal, reduction="mean")
 
 
-    print(f"\nTraining {model_name} for phase timing classification with {loss_fn.__class__.__name__}\n", flush=True)
+    print(f"\nTraining {model_name} for phase timing classification with {loss_fn.__class__.__name__}, gamma = {gamma}\n", flush=True)
     print(f"Epochs: {epochs}, Batch size: {batch_size}, Dropout rate: {dropout_rate}", flush=True)
 
     trained_model = train_cnn(model,
@@ -367,7 +371,7 @@ def main():
     
 
     # Saving the trained model
-    model_name = model_name.split(' ')[0].lower() + "_g" + str(int(gamma))
+    model_name = model_name.split(' ')[0] + "_g" + str(int(gamma))
     save_path_model = f"{save_path}/trained_models/{model_name}_trained.pth"
 
     try:

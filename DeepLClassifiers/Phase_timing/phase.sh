@@ -8,7 +8,7 @@
 #SBATCH --time=3-00:00:00
 #SBATCH --gres=gpu:1
 #SBATCH --qos=rtx_qos
-#SBATCH --array=0-1
+#SBATCH --array=0-3
 #SBATCH --output=/projects/net_contrast_classification/jobs/deep_class/phase_timing/phase_%A_%a.out
 #SBATCH --error=/projects/net_contrast_classification/jobs/deep_class/phase_timing/phase_%A_%a.err
 

@@ -23,8 +23,8 @@ warnings.filterwarnings("ignore", category=FutureWarning)
 class PairDataset(Dataset):
     def __init__(self, csv_path, split, sample=None, filter_outliers = False):
         self.df = pd.read_csv(csv_path)
-        self.split = split
 
+        self.split = split
         self.df = self.df[self.df["split"] == split].reset_index(drop=True)
 
         if sample:
@@ -32,10 +32,11 @@ class PairDataset(Dataset):
 
         self._check_paths()
 
-        self.df["time_interval"] = self.df["time_interval"].astype("float32")
+        self.timing_map = {"Too Early": 0, "Just Right": 1, "Too Late": 2}     
+
 
         if filter_outliers:
-            self._filter_outliers(lower_bound=1, upper_bound=90)
+            self._filter_outliers(lower_bound=0, upper_bound=90)
 
     def _check_paths(self):
         exists_mask = self.df["output_path"].apply(os.path.exists)
@@ -59,6 +60,7 @@ class PairDataset(Dataset):
 
         print(f"After filtering outliers: {len(self.df)} samples")
 
+
     def __len__(self):
         return len(self.df)
 
@@ -67,13 +69,21 @@ class PairDataset(Dataset):
 
         data = torch.load(row["output_path"], map_location="cpu")
 
+        # # normalize time interval
+        # time_interval = (row["time_interval"] - self.mean) / (self.std + 1e-8)
+
         return {
             "patient_id": row["SubjectKeyRadiology"],
             "exam_date": row["ExamDate"],
             "arterial": torch.as_tensor(data["arterial_image"], dtype=torch.float32),
             "portal": torch.as_tensor(data["portal_image"], dtype=torch.float32),
             "time_interval": torch.tensor(row["time_interval"], dtype=torch.float32),
+            "a_timing": torch.tensor(self.timing_map[row["arterial_timing"]], dtype=torch.long),
+            "p_timing": torch.tensor(self.timing_map[row["portal_timing"]], dtype=torch.long),
         }
+
+# ==================================================================
+# ==================================================================
 
 class CNN8_encoder(nn.Module):
     def __init__(self, dropout_rate=0.2):
@@ -106,8 +116,11 @@ class CNN8_encoder(nn.Module):
         x = x.view(x.size(0), -1)   # [B, 128]
         return x
     
+# ==================================================================
+# ==================================================================
+
 class DeepTimeEstimator(nn.Module):
-    def __init__(self, encoder, embedding_dim, t_min=0.0, t_max=60.0):
+    def __init__(self, encoder, embedding_dim, t_min=0.0, t_max=90.0):
         super().__init__()
 
         self.encoder = encoder
@@ -118,25 +131,6 @@ class DeepTimeEstimator(nn.Module):
 
     def encode(self, x):
         return self.encoder(x)   # nothing else
-
-    def forward(self, a_img, p_img):
-
-        z_a = self.encode(a_img)
-        z_p = self.encode(p_img)
-
-        z_a = F.normalize(z_a, dim=1)
-        z_p = F.normalize(z_p, dim=1)
-
-        s_a = self.time_head(z_a)
-        s_p = self.time_head(z_p)
-
-        delta = s_p - s_a           # this can be (-inf, +inf)
-        out = torch.sigmoid(delta)  # sigmoid maps the difference to (0,1) - this is the temporal progression score
-
-        time = out * (self.t_max - self.t_min) + self.t_min      # the sigmoid score is mapped back to real time
-
-        return time.squeeze(1)
-    
 
 
     def forward(self, a_img, p_img):
@@ -152,14 +146,67 @@ class DeepTimeEstimator(nn.Module):
         s_a = self.time_head(z_a)   # [B, 1]
         s_p = self.time_head(z_p)   # [B, 1]
 
-        delta = s_p - s_a           # temporal difference
-        out = torch.sigmoid(delta)  # [0,1]
+        delta = s_p - s_a           # temporal difference between portal and arterial - this can be (-inf, +inf)
+        out = torch.sigmoid(delta)  # sigmoid maps the difference to [0,1] - this is the temporal progression score
 
         # convert back to time
-        time = out * (self.t_max - self.t_min) + self.t_min
+        time = out * (self.t_max - self.t_min) + self.t_min  # the sigmoid score is mapped back to real time
 
-        return time.squeeze(1)
-    
+        return time.squeeze(1), out.squeeze(1)  # return both the time estimate and the progression score
+
+# ==================================================================
+# ==================================================================
+
+class DeepTimeEstimator_with_Classifier(nn.Module):
+    def __init__(self, encoder, embedding_dim, t_min=0.0, t_max=90.0):
+        super().__init__()
+
+        self.encoder = encoder
+        self.time_head = nn.Linear(embedding_dim, 1)
+        self.stage_classifier = nn.Sequential(
+                                    nn.Linear(1, 16),
+                                    nn.ReLU(),
+                                    nn.Linear(16, 3)   # early, optimal and late
+                                )
+
+        self.t_min = t_min
+        self.t_max = t_max
+
+
+    def encode(self, x):
+        return self.encoder(x)   # nothing else
+
+
+    def forward(self, a_img, p_img):
+        # initial shape of inputs = [B, 1, D, H, W]
+        
+        # encode both phases => Siamese modelling 
+        z_a = self.encode(a_img)            # [B, 512]
+        z_p = self.encode(p_img)            # [B, 512]
+
+
+        z_a = F.normalize(z_a, dim=1)
+        z_p = F.normalize(z_p, dim=1)
+
+        s_a = self.time_head(z_a)   # [B, 1]
+        s_p = self.time_head(z_p)   # [B, 1]
+
+        ap_logits = self.stage_classifier(s_a)
+        pvp_logits = self.stage_classifier(s_p)
+
+        delta = s_p - s_a           # temporal difference between portal and arterial - this can be (-inf, +inf)
+        out = torch.sigmoid(delta)  # sigmoid maps the difference to [0,1] - this is the temporal progression score
+
+        # convert back to time
+        time = out * (self.t_max - self.t_min) + self.t_min  # the sigmoid score is mapped back to real time
+
+        return time.squeeze(1), out.squeeze(1), ap_logits, pvp_logits  # return both the time estimate and the progression score
+
+
+# ==================================================================
+# ==================================================================
+
+
 class DeepTimeRegressor(nn.Module):
     def __init__(self, encoder, embedding_dim=512):
         super().__init__()
@@ -216,55 +263,9 @@ class DeepTimeRegressor(nn.Module):
 
         return out.squeeze(1)
 
-# class RadiomicsTimeEstimator():
 
-
-# class SeqTimeEstimator():
-#     def __init__(self, feature_dim =128, hidden_size=128, num_layers=1):
-#         super().__init__()
-
-#         self.feature_dim = feature_dim
-
-#         # Encoder 
-#         self.cnn = Small3DCNN_v2(num_classes=feature_dim)
-
-#         # --- LSTM ---
-#         self.lstm = nn.LSTM(
-#             input_size=feature_dim,
-#             hidden_size=hidden_size,
-#             num_layers=num_layers,
-#             batch_first=True
-#         )
-
-#         # --- Regression head ---
-#         self.fc = nn.Linear(hidden_size, 1)
-
-
-#     def forward(self, x):
-#         # x: (batch size, time points (arterial and portal = 2), channels, D, H, W)
-#         B, T, C, D, H, W = x.shape
-
-#         # merge batch and time
-#         x = x.view(B * T, C, D, H, W)
-
-#         # CNN features
-#         features = self.cnn(x)  # (B*T, feature_dim)
-
-#         # reshape back
-#         features = features.view(B, T, -1)
-
-#         # LSTM
-#         lstm_out, _ = self.lstm(features)
-
-#         # last timestep
-#         out = lstm_out[:, -1, :]
-
-#         # regression
-#         out = self.fc(out)
-
-#         return out.squeeze(1)
-
-
+# ==================================================================
+# ==================================================================
 
 
 def train_regressor(model, 
@@ -305,16 +306,20 @@ def train_regressor(model,
         for batch in loop:
             a_imgs = batch["arterial"].to(device)
             p_imgs = batch["portal"].to(device)
-            labels = batch["time_interval"].float().to(device)
+            true_times = batch["time_interval"].float().to(device)
             
             optimizer.zero_grad()
 
-            outputs = model(a_imgs, p_imgs)
-            error = torch.abs(outputs - labels)
+            if model.__class__.__name__ == "DeepTimeEstimator":
+                pred_times, _ = model(a_imgs, p_imgs)
+            else:
+                pred_times = model(a_imgs, p_imgs)
+                
+            error = torch.abs(pred_times - true_times)
 
             if error_weights:
-                weights = torch.ones_like(labels)
-                weights[(labels >= 30) & (labels <= 40)] = error_weights
+                weights = torch.ones_like(true_times)
+                weights[(true_times >= 30) & (true_times <= 40)] = error_weights
                 loss = (weights * error).mean()
             else:
                 loss = error.mean()
@@ -338,11 +343,14 @@ def train_regressor(model,
                 for batch in val_loader:
                     a_imgs = batch["arterial"].to(device)
                     p_imgs = batch["portal"].to(device)
-                    labels = batch["time_interval"].float().to(device)
+                    true_times = batch["time_interval"].float().to(device)
 
-                    outputs = model(a_imgs, p_imgs)
+                    if model.__class__.__name__ == "DeepTimeEstimator":
+                        pred_times, _ = model(a_imgs, p_imgs)
+                    else:
+                        pred_times = model(a_imgs, p_imgs)
 
-                    error = torch.abs(outputs - labels)
+                    error = torch.abs(pred_times - true_times)
                     loss = error.mean()
                     
                     val_loss.append(loss.item())
@@ -354,7 +362,7 @@ def train_regressor(model,
 
             print(
                     f"Epoch {epoch+1}: "
-                    f"train_weighted_MAE={avg_train_loss:.4f}| val_MAE={avg_val_loss:.4f}",
+                    f"train_MAE={avg_train_loss:.4f}| val_MAE={avg_val_loss:.4f}",
                     flush=True)
 
             # Early stopping
@@ -362,10 +370,10 @@ def train_regressor(model,
                 best_val_loss = avg_val_loss
                 counter = 0
                 best_model_state = model.state_dict()  # saving best weights
-                print(f"New best model: val_MAE = {best_val_loss}")
+                print(f"New best model: val_MAE = {best_val_loss}\n")
             else:
                 counter += 1
-                print(f"No improvement ({counter})")
+                print(f"No improvement ({counter})\n")
 
                 if early_stopping is not None and counter >= early_stopping:
                     print("Early stopping triggered")
@@ -409,19 +417,23 @@ def evaluate_regressor(model,
 
     results = []
 
+
     with torch.no_grad():
         for batch in test_loader:
             a_imgs = batch["arterial"].to(device)
             p_imgs = batch["portal"].to(device)
-            labels = batch["time_interval"].float().to(device)
+            true_times = batch["time_interval"].float().to(device)
 
             patient_ids = batch["patient_id"]
             dates = batch["exam_date"]
 
-            outputs = model(a_imgs, p_imgs)
+            if model.__class__.__name__ == "DeepTimeEstimator":
+                pred_times, pred_scores = model(a_imgs, p_imgs)
+            else:
+                pred_times = model(a_imgs, p_imgs)
 
             # errors
-            error = outputs - labels
+            error = pred_times - true_times
             abs_error = error.abs()
 
             # accumulate metrics
@@ -435,9 +447,11 @@ def evaluate_regressor(model,
                 results.append({
                     "patient_id": patient_ids[0],
                     "date": dates[0],
-                    "true_interval": labels.item(),
-                    "pred_interval": outputs.item(),
-                    "error": err_value
+                    "true_interval": true_times.item(),
+                    "pred_interval": pred_times.item(),
+                    "sigmoid_scores": pred_scores.item() if 'pred_scores' in locals() else None,
+                    "error": err_value,
+
                 })
 
     mse = sq_err_sum / n
@@ -447,6 +461,264 @@ def evaluate_regressor(model,
     print(f"Test MAE:  {mae:.4f} seconds")
     print(f"Test RMSE: {rmse:.4f} seconds")
     print(f"Test MSE:  {mse:.4f}")
+
+    return results
+
+# ==================================================================
+# ==================================================================
+
+
+def train_regressor_with_classifier(model, 
+                                    encoder_name,
+                                    train_loader, 
+                                    val_loader = None, 
+                                    epochs=10,
+                                    lr=1e-4, 
+                                    weight_decay = 1e-4, 
+                                    early_stopping: Optional[int] = None
+                                    ):
+    
+
+    device = "cuda" if torch.cuda.is_available() else "cpu"
+    model = model.to(device)
+
+    optimizer = torch.optim.Adam(model.parameters(), lr=lr, weight_decay=weight_decay)
+
+    best_val_loss = float("inf")
+
+    counter = 0
+    best_model_state = None
+
+    train_curve = []
+    val_curve = []
+
+    mae_loss = nn.L1Loss()
+    ce_loss = nn.CrossEntropyLoss()
+
+
+    # -------------------- TRAIN --------------------
+
+    for epoch in range(epochs):
+
+        train_total_losses = []
+        train_time_losses = []
+        train_ap_losses = []
+        train_pvp_losses = []
+
+        model.train()
+
+        loop = tqdm(train_loader, desc=f"Epoch {epoch+1}/{epochs}", leave=False)
+
+        for batch in loop:
+            a_imgs = batch["arterial"].to(device)
+            p_imgs = batch["portal"].to(device)
+            true_times = batch["time_interval"].float().to(device)
+            a_timing = batch["a_timing"].to(device)
+            p_timing = batch["p_timing"].to(device)
+
+            
+            optimizer.zero_grad()
+
+            pred_times, _, pred_ap_logits, pred_pvp_logits = model(a_imgs, p_imgs)
+                
+            loss_time = mae_loss(pred_times, true_times)
+            loss_ap = ce_loss(pred_ap_logits, a_timing)
+            loss_pvp = ce_loss(pred_pvp_logits, p_timing)
+
+
+            loss = loss_time + 0.2 * (loss_ap + loss_pvp)
+
+            loss.backward()
+            optimizer.step()
+
+            train_total_losses.append(loss.item())
+            train_time_losses.append(loss_time.item())
+            train_ap_losses.append(loss_ap.item())
+            train_pvp_losses.append(loss_pvp.item())
+
+
+        avg_train_total = np.mean(train_total_losses)
+        avg_train_time = np.mean(train_time_losses)
+        avg_train_ap = np.mean(train_ap_losses)
+        avg_train_pvp = np.mean(train_pvp_losses)
+        train_curve.append(avg_train_time)
+    
+    # -------------------- VALIDATION --------------------
+
+        if val_loader is not None:
+
+            val_total_losses = []
+            val_time_losses = []
+            val_ap_losses = []
+            val_pvp_losses = []
+
+            model.eval()
+
+            with torch.no_grad():
+                for batch in val_loader:
+                    a_imgs = batch["arterial"].to(device)
+                    p_imgs = batch["portal"].to(device)
+                    true_times = batch["time_interval"].float().to(device)
+                    a_timing = batch["a_timing"].to(device)
+                    p_timing = batch["p_timing"].to(device)
+
+                    pred_times, _, pred_ap_logits, pred_pvp_logits = model(a_imgs, p_imgs)
+
+                    loss_time = mae_loss(pred_times, true_times)
+                    loss_ap = ce_loss(pred_ap_logits, a_timing)
+                    loss_pvp = ce_loss(pred_pvp_logits, p_timing)
+
+
+                    loss = loss_time + 0.3 * (loss_ap + loss_pvp)
+
+                    val_total_losses.append(loss.item())
+                    val_time_losses.append(loss_time.item())
+                    val_ap_losses.append(loss_ap.item())
+                    val_pvp_losses.append(loss_pvp.item())
+
+
+
+            avg_val_total = np.mean(val_total_losses)
+            avg_val_time = np.mean(val_time_losses)
+            avg_val_ap = np.mean(val_ap_losses)
+            avg_val_pvp = np.mean(val_pvp_losses)
+
+            val_curve.append(avg_val_time)
+
+            print(
+                f"Epoch {epoch+1}/{epochs}\n"
+                f"Train: total={avg_train_total:.4f} | "
+                f"MAE={avg_train_time:.4f} | "
+                f"AP CE={avg_train_ap:.4f} | "
+                f"PVP CE={avg_train_pvp:.4f}\n"
+                f"Val:   total={avg_val_total:.4f} | "
+                f"MAE={avg_val_time:.4f} | "
+                f"AP CE={avg_val_ap:.4f} | "
+                f"PVP CE={avg_val_pvp:.4f}",
+
+                flush=True,
+
+            )
+
+            # Early stopping
+            if avg_val_time < best_val_loss:
+                best_val_loss = avg_val_time
+                counter = 0
+                best_model_state = model.state_dict()  # saving best weights
+                print(f"New best model: val_MAE = {best_val_loss}\n")
+            else:
+                counter += 1
+                print(f"No improvement ({counter})\n")
+
+                if early_stopping is not None and counter >= early_stopping:
+                    print("Early stopping triggered")
+                    break
+
+        if train_curve is not None and val_curve is not None:
+            save_path = "/projects/net_contrast_classification/contrast_phase/DeepLClassifiers/Time_interval/results"
+            os.makedirs(save_path, exist_ok=True)
+
+            plt.clf()  
+            plt.plot(train_curve, label="train MAE")
+            plt.plot(val_curve, label="val MAE")
+            plt.xlabel("Epoch")
+            plt.ylabel("Loss")
+            plt.title(f"Time Interval Estimation with {model.encoder.__class__.__name__}")
+            plt.legend()
+            plt.pause(0.01)
+            plt.savefig(f"{save_path}/{model.__class__.__name__}_{encoder_name}_training_MAE_curve.png") 
+
+
+    # Loading the best model
+    if best_model_state is not None:
+        model.load_state_dict(best_model_state)
+
+    return model
+
+def evaluate_regressor_with_classifier(
+                                        model,
+                                        test_loader,
+                                        device=None,
+                                        threshold=None,
+                                        ):
+
+    if device is None:
+        device = "cuda" if torch.cuda.is_available() else "cpu"
+
+    model = model.to(device)
+    model.eval()
+
+    ce_loss = nn.CrossEntropyLoss()
+    sq_err_sum = 0.0
+    abs_err_sum = 0.0
+    n = 0
+
+    ap_losses = []
+    pvp_losses = []
+    results = []
+
+    with torch.no_grad():
+
+        for batch in test_loader:
+            a_imgs = batch["arterial"].to(device)
+            p_imgs = batch["portal"].to(device)
+            true_times = batch["time_interval"].float().to(device)
+            a_timing = batch["a_timing"].to(device)
+            p_timing = batch["p_timing"].to(device)
+            patient_ids = batch["patient_id"]
+            dates = batch["exam_date"]
+
+            pred_times, sigm_score, pred_ap_logits, pred_pvp_logits = model(a_imgs, p_imgs)
+            ap_pred = pred_ap_logits.argmax(dim=1)
+            pvp_pred = pred_pvp_logits.argmax(dim=1)
+
+
+            # Regression errors
+            error = pred_times - true_times
+            abs_error = error.abs()
+            sq_err_sum += (error ** 2).sum().item()
+            abs_err_sum += abs_error.sum().item()
+            n += true_times.numel()
+
+            # Classification losses
+            loss_ap = ce_loss(pred_ap_logits, a_timing)
+            loss_pvp = ce_loss(pred_pvp_logits, p_timing)
+            ap_losses.append(loss_ap.item())
+            pvp_losses.append(loss_pvp.item())
+
+
+            # Save per-sample results
+            for i in range(true_times.size(0)):
+                err_value = abs_error[i].item()
+                if threshold is None or err_value > threshold:
+                    results.append(
+                        {
+                            "patient_id": patient_ids[i],
+                            "date": dates[i],
+                            "true_interval": true_times[i].item(),
+                            "pred_interval": pred_times[i].item(),
+                            "sigmoid_score": sigm_score[i].item(),
+                            "error": err_value,
+                            "true_a_timing": a_timing[i].item(),
+                            "true_p_timing": p_timing[i].item(),
+                            "pred_a_timing": ap_pred[i].item(),
+                            "pred_p_timing": pvp_pred[i].item(),
+                        }
+                    )
+
+    mse = sq_err_sum / n
+    mae = abs_err_sum / n
+    rmse = mse ** 0.5
+    avg_ap_loss = np.mean(ap_losses)
+    avg_pvp_loss = np.mean(pvp_losses)
+    avg_total_loss = mae + 0.2 * (avg_ap_loss + avg_pvp_loss)
+
+    print(f"Test total loss : {avg_total_loss:.4f}")
+    print(f"Test MAE        : {mae:.4f} seconds")
+    print(f"Test RMSE       : {rmse:.4f} seconds")
+    print(f"Test MSE        : {mse:.4f}")
+    print(f"Test AP CE      : {avg_ap_loss:.4f}")
+    print(f"Test PVP CE     : {avg_pvp_loss:.4f}")
 
     return results
 
@@ -479,6 +751,9 @@ def build_model(model_name):
     elif task == "reg":
         model = DeepTimeRegressor(encoder, emb_dim)
 
+    elif task == "class":
+        model = DeepTimeEstimator_with_Classifier(encoder, emb_dim)
+
     else:
         raise ValueError(f"Unknown task: {task}")
 
@@ -494,11 +769,22 @@ def main():
 
     data_dir = "/projects/net_contrast_classification/contrast_phase/Preprocessing/Time_interval_data/paired_preprocessed_data.csv"
 
+    # df = pd.read_csv(data_dir)
+    # train_df = df[df["split"] == "train"]
+    # train_df = train_df[
+    #     (train_df["time_interval"] >= 0) &
+    #     (train_df["time_interval"] <= 90)
+    # ]
+    # mean = train_df["time_interval"].mean()
+    # std = train_df["time_interval"].std()
+
+
     batch_size = 1
     epochs = 100
     
-    model_map = {0: "ResNet10_estim", 1: "CNN8_estim",
-                 2: "ResNet10_reg", 3: "CNN8_reg"
+    model_map = {0: "ResNet10_class", 1: "CNN8_class",
+                 2: "ResNet10_estim", 3: "CNN8_estim",
+                 4: "ResNet10_reg", 5: "CNN8_reg",
                 # , 2: "Merlin"
                 }
     
@@ -528,13 +814,21 @@ def main():
     flush=True
     )   
 
-    trained_model = train_regressor(model, encoder_name,
-                                        train_loader,
-                                        val_loader,
-                                        epochs = epochs,
-                                        early_stopping=None,
-                                        error_weights=None,
-                                        )
+    if model.__class__.__name__ == "DeepTimeEstimator_with_Classifier":
+        trained_model = train_regressor_with_classifier(model, encoder_name,
+                                                        train_loader,
+                                                        val_loader,
+                                                        epochs = epochs,
+                                                        early_stopping=20
+                                                        )
+    else:
+        trained_model = train_regressor(model, encoder_name,
+                                            train_loader,
+                                            val_loader,
+                                            epochs = epochs,
+                                            early_stopping=20,
+                                            error_weights=None,
+                                            )
 
     save_path = "/projects/net_contrast_classification/contrast_phase/DeepLClassifiers/Time_interval"
     os.makedirs(f"{save_path}/trained_models", exist_ok=True)
@@ -556,9 +850,14 @@ def main():
     # ------------------------------------------------- Evaluate --------------------------------------------------
     # -------------------------------------------------------------------------------------------------------------
 
-    test_losses = evaluate_regressor(trained_model, test_loader)
+    if model.__class__.__name__ == "DeepTimeEstimator_with_Classifier":
+        test_losses = evaluate_regressor_with_classifier(trained_model, test_loader)
+    else:
+        test_losses = evaluate_regressor(trained_model, test_loader)
     df = pd.DataFrame(test_losses)
-    df.to_csv(f"{save_path}/results/{model.__class__.__name__}_{encoder_name}_pred_intervals.csv", index=False)   
+
+
+    df.to_csv(f"{save_path}/results/{trained_model.__class__.__name__}_{encoder_name}_pred_intervals.csv", index=False)   
 
 if __name__ == "__main__":
     main()

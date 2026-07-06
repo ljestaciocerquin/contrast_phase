@@ -41,8 +41,14 @@ class PTDataset(Dataset):
 
         self._check_paths()
 
-        original_len = len(self.df)
 
+
+        # For the phase_timing classification task exclude non-contrast images since they are not relevant to the task
+        if self.label_name == "phase":
+            self.df = self.df[self.df["phase"] != "Non-contrast"].reset_index(drop=True)
+
+        
+        original_len = len(self.df)
 
         # ---------------- label encoding (GLOBAL) ----------------
 
@@ -395,11 +401,9 @@ class ResNet(nn.Module):
 #     def __init__(self, num_classes, dropout_rate=0.3):
 #         super().__init__()
 
-#         # load pretrained Merlin encoder
 #         self.encoder = Merlin(ImageEmbedding=True)
 
-#         #  find embedding size (you may need to adjust this!)
-#         feature_dim = 512  # <-- change after checking output
+#         feature_dim = 2048  # based on output check
 
 #         self.head = nn.Sequential(
 #             nn.Linear(feature_dim, 128),
@@ -409,8 +413,18 @@ class ResNet(nn.Module):
 #         )
 
 #     def forward(self, x):
-#         z = self.encoder(x)   # (B, feature_dim)
+#         z = self.encoder(x)
+
+#         # Fix accidental leading singleton dim
+#         if z.dim() == 3 and z.shape[0] == 1:
+#             z = z.squeeze(0)
+
+#         # Now enforce correct shape
+#         if z.dim() != 2:
+#             raise RuntimeError(f"Unexpected shape after fix: {z.shape}")
+
 #         return self.head(z)
+
 
 
 def main():
@@ -426,9 +440,11 @@ def main():
 
     batch_size = 2
     epochs = 50
+    dropout_rate = 0.3
 
-    model_map = {0: "ResNet10", 1: "CNN8"
-                # , 2: "Merlin"
+    model_map = {0: "ResNet10", 
+                 1: "CNN8", 
+                #  2: "Merlin"
                 }
     
     task_id = int(os.environ.get("SLURM_ARRAY_TASK_ID", 0))
@@ -457,13 +473,13 @@ def main():
     
 
     if model_name == "ResNet10":
-        model = ResNet(num_classes = len(le.classes_), dropout_rate=0.3)
-    
+        model = ResNet(num_classes = len(le.classes_), dropout_rate=dropout_rate)
     elif model_name == "CNN8":
-        model = CNN8(num_classes=len(le.classes_), dropout_rate=0.2)
+        model = CNN8(num_classes=len(le.classes_), dropout_rate=dropout_rate)
 
 
     print(f"\nTraining {model_name} for contrast phase classification\n")
+    print(f"Epochs = {epochs}, Batch size = {batch_size}, Dropout Rate = {dropout_rate}")
 
     save_path = "/projects/net_contrast_classification/contrast_phase/DeepLClassifiers/Contrast"
     os.makedirs(save_path, exist_ok=True)

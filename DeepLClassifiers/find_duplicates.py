@@ -28,9 +28,9 @@ def find_duplicate_filenames(folders: Iterable[str]) -> Dict[str, List[str]]:
 
     return duplicates
 
-train = '/mnt/rhea/data_private/IRBd23-231/GEPNETs/ARTINET/contrast_preprocessed/train'
-test  = '/mnt/rhea/data_private/IRBd23-231/GEPNETs/ARTINET/contrast_preprocessed/test'
-val   = '/mnt/rhea/data_private/IRBd23-231/GEPNETs/ARTINET/contrast_preprocessed/val'
+train = '/mnt/rhea/data_private/IRBd23-231/GEPNETs/contrast_phase/diffusion_data/train'
+test  = '/mnt/rhea/data_private/IRBd23-231/GEPNETs/contrast_phase/diffusion_data/test'
+val   = '/mnt/rhea/data_private/IRBd23-231/GEPNETs/contrast_phase/diffusion_data/val'
 folders  = [train, test, val]
 duplicates = find_duplicate_filenames(folders)
 
