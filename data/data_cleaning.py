@@ -45,10 +45,11 @@ def annot_mapping(data, verbose = 0):
     data.loc[mask, 'phase_timing'] = 'Non-contrast'
 
 
-    # If is_liver_imaged is 0 or NA and contrast is not NA and ProtocolName contains lever => is_liver_imaged = Yes
+    # If is_liver_imaged is 0 or NA and contrast is not NA and BodyPartExamined/ ProtocolName contains lever or abdomen => is_liver_imaged = Yes
     mask_liver = (
         (data['is_liver_imaged'].eq("0") | data['is_liver_imaged'].isna()) &
-        data['ProtocolName'].str.lower().str.match(r'^lever\b', case=False,na=False)
+        (data['BodyPartExamined'].str.lower().str.match(r'\blever\b|\babdomen\b', case=False,na=False) |
+        data['ProtocolName'].str.lower().str.match(r'\blever\b|\babdomen\b', case=False,na=False))
     )
 
     data.loc[mask_liver, 'is_liver_imaged'] = 'Yes'
@@ -84,8 +85,8 @@ def check_zeros(data):
     If not empty, save them for validation
     """
     zeros = data[(data.contrast == "0") 
-                                                 | (data.is_liver_imaged == "0")
-                                                 | (data.phase_timing == 0.0)
+                                        | (data.is_liver_imaged == "0")
+                                        | (data.phase_timing == 0.0)
               ]
 
     zeros.to_csv("/projects/net_contrast_classification/contrast_phase/data/kalina_checks/to_check/unknown_contrast_timing_or_liver.csv", index=False)
@@ -273,13 +274,13 @@ def main():
     # Mapping
     # ==============================================================================
 
+    data = reformat_missing_bodypart(data)
     data = annot_mapping(data, verbose = 1)
     data = exclude_cor_sag(data, verbose = 1)
     check_zeros(data)
 
     data['AcquisitionTime_sec'] = pd.to_timedelta(data['AcquisitionTime']).dt.total_seconds()
     data["ExamDate"] = pd.to_datetime(data["ExamDate"])
-    data = reformat_missing_bodypart(data)
     data = get_slice_thickness(data)
 
     data['DICOM_phase'] = data['ProtocolName'].apply(map_dicom_phase)

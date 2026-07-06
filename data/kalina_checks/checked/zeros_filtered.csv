@@ -1,0 +1,109 @@
+,MatchKey,is_liver_imaged,contrast,phase_timing,ProtocolName,BodyPartExamined
+0,NKI-d23231-00-0036_20060814_kalina99_0057.nii.gz,Yes,Portal,Just Right,Abdomen  1.5  B30f,ABDOMEN
+2,NKI-d23231-00-0109_20150623_kalina99_0067.nii.gz,Yes,Arterial,Just Right,Abdomen A  1.5  B25f,ABDOMEN
+6,NKI-d23231-00-0146_20181029_david01_0063.nii.gz,Yes,Portal,Just Right,Body 1.0 CE   Vol.,ABDOMEN
+7,NKI-d23231-00-0146_20221012_giovanni01_0246.nii.gz,Yes,Portal,Just Right,Body 1.0 CE   Vol.,ABDOMEN
+12,NKI-d23231-00-0162_20060809_kalina99_0381.nii.gz,Partially,Arterial,Too Late,Abdomen  1.5  B25f,ABDOMEN
+14,NKI-d23231-00-0170_20060405_kalina99_0444.nii.gz,Yes,Portal,Just Right,Abdomen  1.5  B25f,ABDOMEN
+16,NKI-d23231-00-0182_20130726_david01_0081.nii.gz,Yes,Arterial,Just Right,ABDOMEN A 1.0 FC01,ABDOMEN
+18,NKI-d23231-00-0193_20161012_kalina99_0660.nii.gz,Yes,Portal,Too Early,Body 1.0 CE   Vol.,ABDOMEN
+20,NKI-d23231-00-0201_20120709_kalina99_0009.nii.gz,Partially,Portal,Just Right,ABDOMEN + C 1.0 FC02,ABDOMEN
+21,NKI-d23231-00-0201_20120709_kalina99_0010.nii.gz,Partially,Arterial,Just Right,ABDOMEN A 1.0 FC02,ABDOMEN
+22,NKI-d23231-00-0202_20081110_kalina99_0030.nii.gz,Yes,Arterial,Too Early,Abdomen A  1.5  B25f,ABDOMEN
+29,NKI-d23231-00-0218_20160420_kalina99_0212.nii.gz,Yes,Portal,Just Right,ThxAbd  1.5  B25f,CHEST
+30,NKI-d23231-00-0223_20180516_kalina01_0020.nii.gz,Yes,Portal,Just Right,Body 1.0 CE   Vol.,ABDOMEN
+31,NKI-d23231-00-0226_20131126_kalina99_0314.nii.gz,Partially,Arterial,Just Right,MEDIASTINUM +C 1.0 FC01,MEDIASTINUM
+34,NKI-d23231-00-0244_20140819_kalina99_0551.nii.gz,Partially,Portal,Just Right,ABDOMEN + C 1.0 FC01,ABDOMEN
+35,NKI-d23231-00-0253_20060629_kalina99_0609.nii.gz,Yes,Arterial,Too Early,Lever A  1.5  B25f,ABDOMEN
+36,NKI-d23231-00-0255_20061205_kalina99_0619.nii.gz,Yes,Arterial,Too Early,Lever A 2mm,LEVER
+38,NKI-d23231-00-0258_20060728_kalina99_0632.nii.gz,Partially,Arterial,Too Early,Lever A  1.5  B25f,ABDOMEN
+40,NKI-d23231-00-0266_20140630_kalina99_0697.nii.gz,Yes,Arterial,Just Right,ABDOMEN A 1.0 FC01,ABDOMEN
+41,NKI-d23231-00-0266_20141114_kalina99_0698.nii.gz,Partially,Portal,Just Right,ABDOMEN + C 1.0 FC01,ABDOMEN
+42,NKI-d23231-00-0266_20181204_kalina99_0723.nii.gz,Partially,Portal,Just Right,Body 1.0 CE   Vol.,ABDOMEN
+43,NKI-d23231-00-0270_20200630_kalina99_0791.nii.gz,Yes,Arterial,Just Right,Abdomen A  1.5  B25f,ABDOMEN
+44,NKI-d23231-00-0270_20210416_kalina99_0794.nii.gz,Yes,Portal,Just Right,Body 1.0 CE   Vol.,ABDOMEN
+45,NKI-d23231-00-0276_20201030_kalina01_0060.nii.gz,Yes,Arterial,Just Right,Abdomen A  1.5  B25f,ABDOMEN
+46,NKI-d23231-00-0278_20140625_kalina99_0892.nii.gz,Yes,Portal,Just Right,ABDOMEN + C 1.0 FC01,ABDOMEN
+47,NKI-d23231-00-0281_20180306_kalina99_0964.nii.gz,Partially,Arterial,Just Right,Abdomen A  1.5  B25f,ABDOMEN
+48,NKI-d23231-00-0281_20180306_kalina99_0965.nii.gz,Partially,Portal,Just Right,Abdomen V  1.5  B25f,ABDOMEN
+49,NKI-d23231-00-0285_20141022_kalina99_1035.nii.gz,Yes,Arterial,Just Right,Abdomen A  1.5  B25f,ABDOMEN
+50,NKI-d23231-00-0285_20150306_kalina99_1041.nii.gz,Yes,Arterial,Just Right,ABDOMEN A 1.0 FC01,ABDOMEN
+51,NKI-d23231-00-0285_20150904_kalina99_1044.nii.gz,Yes,Arterial,Too Early,Abdomen A  1.5  B25f,ABDOMEN
+52,NKI-d23231-00-0285_20150904_kalina99_1046.nii.gz,Yes,Portal,Too Early,Abdomen V  1.5  B25f,ABDOMEN
+53,NKI-d23231-00-0292_20140702_kalina99_1132.nii.gz,Partially,Arterial,Too Late,MEDIASTINUM +C 1.0 FC01,MEDIASTINUM
+54,NKI-d23231-00-0297_20140826_kalina99_1219.nii.gz,Partially,Portal,Just Right,MEDIASTINUM +C 1.0 FC01,MEDIASTINUM
+55,NKI-d23231-00-0300_20210927_kalina99_1283.nii.gz,Partially,Portal,Just Right,Body 1.0 CE   Vol.,ABDOMEN
+56,NKI-d23231-00-0307_20151208_kalina99_1354.nii.gz,Partially,Arterial,Just Right,Abdomen A  1.5  B25f,ABDOMEN
+57,NKI-d23231-00-0307_20170223_kalina99_1364.nii.gz,Partially,Portal,Too Early,Body 1.0 CE   Vol.,ABDOMEN
+59,NKI-d23231-00-0314_20060821_kalina99_1452.nii.gz,Partially,Arterial,Just Right,Mediastinum 2mm,MEDIASTINUM
+61,NKI-d23231-00-0315_20050105_kalina99_1459.nii.gz,Yes,Arterial,Too Early,Lever A  1.5  B25f,ABDOMEN
+64,NKI-d23231-00-0319_20081014_kalina99_1476.nii.gz,Yes,Arterial,Too Early,Abdomen A  1.5  B25f,ABDOMEN
+67,NKI-d23231-00-0321_20060929_kalina99_1490.nii.gz,Partially,Arterial,Just Right,Lever A  1.5  B25f,ABDOMEN
+71,NKI-d23231-00-0325_20071011_kalina99_1546.nii.gz,Yes,Arterial,Too Early,Abdomen A  1.5  B25f,ABDOMEN
+74,NKI-d23231-00-0327_20070614_kalina99_1600.nii.gz,Yes,Arterial,Just Right,Lever A 2mm,LEVER
+75,NKI-d23231-00-0327_20070925_kalina99_1602.nii.gz,Yes,Arterial,Just Right,Lever A 2mm,LEVER
+86,NKI-d23231-00-0334_20141003_kalina99_1715.nii.gz,Partially,Portal,Just Right,MEDIASTINUM +C 1.0 FC01,MEDIASTINUM
+89,NKI-d23231-00-0336_20100409_kalina99_1742.nii.gz,Yes,Arterial,Too Early,Abdomen A  1.5  B25f,ABDOMEN
+94,NKI-d23231-00-0362_20061221_kalina01_0135.nii.gz,Yes,Portal,Just Right,Abdomen  1.5  B30f,ABDOMEN
+96,NKI-d23231-00-0366_20200820_kalina99_2120.nii.gz,Yes,Portal,Just Right,Abdomen V  1.5  B25f,ABDOMEN
+99,NKI-d23231-00-0385_20171227_kalina01_0153.nii.gz,Yes,Portal,Just Right,Abdomen V  1.5  B25f,ABDOMEN
+102,NKI-d23231-00-0390_20191227_kalina99_2276.nii.gz,Yes,Portal,Just Right,Abdomen V  1.5  B25f,ABDOMEN
+104,NKI-d23231-00-0399_20150821_kalina99_2432.nii.gz,Yes,Portal,Just Right,Sharp + C 2 mm,
+105,NKI-d23231-00-0400_20070118_kalina99_2455.nii.gz,Yes,Arterial,Too Early,Lever A  1.5  B25f,ABDOMEN
+107,NKI-d23231-00-0402_20070419_kalina99_2470.nii.gz,Yes,Portal,Just Right,Abdomen  1.5  B25f,ABDOMEN
+108,NKI-d23231-00-0402_20070419_kalina99_2472.nii.gz,Partially,Arterial,Too Early,Lever A  1.5  B25f,ABDOMEN
+110,NKI-d23231-00-0410_20080128_kalina99_2532.nii.gz,Partially,Arterial,Too Early,Abdomen A 2mm,ABDOMEN
+115,NKI-d23231-00-0411_20130819_kalina99_2583.nii.gz,Partially,Arterial,Just Right,MEDIASTINUM +C 1.0 FC01,MEDIASTINUM
+116,NKI-d23231-00-0413_20100607_kalina99_2616.nii.gz,Yes,Portal,Just Right,Abdomen V  1.5  B25f,ABDOMEN
+118,NKI-d23231-00-0415_20140108_kalina99_2664.nii.gz,Yes,Arterial,Just Right,LEVER A 1.0 FC01,LEVER
+120,NKI-d23231-00-0415_20141117_kalina99_2669.nii.gz,Partially,Arterial,Just Right,MEDIASTINUM +C 1.0 FC01,MEDIASTINUM
+121,NKI-d23231-00-0416_20160609_kalina99_2702.nii.gz,Yes,Portal,Just Right,Abdomen V  1.5  B25f,ABDOMEN
+122,NKI-d23231-00-0422_20151006_kalina99_2755.nii.gz,Partially,Arterial,Just Right,ABDOMEN A 1.0 FC01,ABDOMEN
+123,NKI-d23231-00-0427_20160906_kalina99_2819.nii.gz,Yes,Arterial,Too Early,Abdomen A  1.5  B25f,ABDOMEN
+126,NKI-d23231-00-0445_20050826_kalina99_2909.nii.gz,Yes,Arterial,Too Early,Lever A  1.5  B25f,ABDOMEN
+136,NKI-d23231-00-0456_20120214_kalina99_3060.nii.gz,Yes,Arterial,Too Early,Abdomen A  1.5  B25f,ABDOMEN
+137,NKI-d23231-00-0457_20090828_kalina99_3080.nii.gz,Partially,Arterial,Too Early,Abdomen A  1.5  B25f,ABDOMEN
+138,NKI-d23231-00-0457_20121009_kalina99_3090.nii.gz,Yes,Arterial,Too Early,ABDOMEN A 1.0 FC02,ABDOMEN
+141,NKI-d23231-00-0465_20150630_kalina99_3205.nii.gz,Yes,Arterial,Too Early,Abdomen A  1.5  B25f,ABDOMEN
+143,NKI-d23231-00-0483_20190104_kalina99_3378.nii.gz,Partially,Arterial,Just Right,Abd laat-art  1.0  I26f  2,ABDOMEN
+144,NKI-d23231-00-0486_20150616_kalina99_3406.nii.gz,Yes,Portal,Just Right,Thx.lever +C  1.5  B25f,CHEST
+145,NKI-d23231-00-0491_20161004_kalina99_3417.nii.gz,Partially,Arterial,Too Early,Lever A  1.5  B25f,ABDOMEN
+156,NKI-d23231-00-0516_20050331_kalina99_3560.nii.gz,Yes,Arterial,Just Right,Lever A  1.5  B25f,ABDOMEN
+163,NKI-d23231-00-0527_20170217_kalina99_3635.nii.gz,Yes,Portal,Just Right,Abdomen V  1.5  B25f,ABDOMEN
+164,NKI-d23231-00-0530_20151224_kalina99_3657.nii.gz,Yes,Arterial,Too Early,Abdomen A  1.5  B25f,ABDOMEN
+165,NKI-d23231-00-0532_20150818_kalina99_3669.nii.gz,Yes,Portal,Just Right,Abdomen V  1.5  B25f,ABDOMEN
+173,NKI-d23231-00-0539_20041126_kalina99_3822.nii.gz,Partially,Arterial,Too Late,Lever +C  1.5  B25f,ABDOMEN
+175,NKI-d23231-00-0540_20200910_kalina99_3882.nii.gz,Partially,Portal,Just Right,Body 1.0 CE   Vol.,ABDOMEN
+194,NKI-d23231-00-0569_20130115_kalina99_4086.nii.gz,Partially,Arterial,Too Early,Abdomen A  1.5  B25f,ABDOMEN
+195,NKI-d23231-00-0570_20111004_kalina99_4097.nii.gz,Partially,Arterial,Too Late,THORAX 3MM,
+203,NKI-d23231-00-0587_20200930_kalina99_4173.nii.gz,Yes,Portal,Just Right,Abdomen V  1.5  B25f,ABDOMEN
+204,NKI-d23231-00-0594_20061208_kalina01_0297.nii.gz,Partially,Portal,Just Right,Abdomen BB  1.5  B30f,ABDOMEN
+208,NKI-d23231-00-0625_20160909_kalina99_4395.nii.gz,Partially,Arterial,Too Early,Abdomen A  1.5  B25f,ABDOMEN
+209,NKI-d23231-00-0625_20170622_kalina99_4403.nii.gz,Partially,Arterial,Too Early,Abdomen A  1.5  B25f,ABDOMEN
+212,NKI-d23231-00-0657_20181004_kalina99_4526.nii.gz,Partially,Arterial,Too Early,Thorax_Routine  1.5  I31f  2 sv ax,THORAX
+213,NKI-d23231-00-0657_20181004_kalina99_4527.nii.gz,Partially,Arterial,Too Early,Thorax_Routine  3.0  I31f  2 ax,THORAX
+225,NKI-d23231-00-0746_20200130_kalina99_4877.nii.gz,Yes,Arterial,Just Right,Abd laat-art  1.0  Bv38  2,ABDOMEN
+226,NKI-d23231-00-0746_20221026_kalina99_4889.nii.gz,Partially,Portal,Just Right,Body 1.0 CE   Vol.,ABDOMEN
+227,NKI-d23231-00-0746_20221026_kalina99_4891.nii.gz,Partially,Portal,Just Right,Lever 1.0 CE   Vol.,ABDOMEN
+228,NKI-d23231-00-0748_20161129_kalina99_4904.nii.gz,Partially,Arterial,Too Late,Body 1.0 CE   Vol.,ABDOMEN
+234,NKI-d23231-00-0767_20170727_kalina99_5067.nii.gz,Partially,Portal,Just Right,LONG +C 2.0,
+235,NKI-d23231-00-0771_20171003_kalina99_5115.nii.gz,Partially,Arterial,Too Early,THORAX LS AX,THORAX
+237,NKI-d23231-00-0771_20210812_kalina99_5133.nii.gz,Yes,Portal,Just Right,Body 1.0 CE   Vol.,ABDOMEN
+238,NKI-d23231-00-0772_20210121_kalina99_5143.nii.gz,Yes,Arterial,Just Right,Abdomen A  1.5  B25f,ABDOMEN
+239,NKI-d23231-00-0776_20180806_kalina99_5160.nii.gz,Yes,Arterial,Just Right,Abd laat-art  1.0  I26f  2,ABDOMEN
+240,NKI-d23231-00-0776_20190213_kalina99_5163.nii.gz,Yes,Portal,Just Right,Abdomen V  1.5  B25f,ABDOMEN
+241,NKI-d23231-00-0776_20191007_kalina99_5168.nii.gz,Partially,Arterial,Too Early,Thorax  3.0  I31f  3,CHEST
+242,NKI-d23231-00-0776_20210122_kalina99_5178.nii.gz,Yes,Arterial,Too Early,Abdomen A  1.5  B25f,ABDOMEN
+245,NKI-d23231-00-0787_20200113_kalina99_5244.nii.gz,Yes,Arterial,Just Right,Abdomen A  1.5  B25f,ABDOMEN
+246,NKI-d23231-00-0787_20210329_kalina99_5247.nii.gz,Yes,Arterial,Just Right,Abdomen A  1.5  B25f,ABDOMEN
+248,NKI-d23231-00-0828_20220930_kalina99_5515.nii.gz,Partially,Arterial,Just Right,Abdomen Art  1.0  Br36  3,ABDOMEN
+249,NKI-d23231-00-0829_20201118_kalina99_5525.nii.gz,Yes,Portal,Just Right,Abdomen V  1.5  B25f,ABDOMEN
+250,NKI-d23231-00-0834_20220224_kalina99_5565.nii.gz,Yes,Arterial,Just Right,Abdomen A  1.5  B25f,ABDOMEN
+251,NKI-d23231-00-0834_20220224_kalina99_5566.nii.gz,Yes,Portal,Just Right,Abdomen V  1.5  B25f,ABDOMEN
+252,NKI-d23231-00-0834_20220226_kalina99_5567.nii.gz,Yes,Portal,Just Right,ThorAbd   1.0  Bv38  2,ABDOMEN
+253,NKI-d23231-00-0834_20220308_kalina99_5568.nii.gz,Yes,Portal,Just Right,Abdomen  1.5  B25f,ABDOMEN
+254,NKI-d23231-00-0834_20220331_kalina99_5569.nii.gz,Yes,Portal,Just Right,Body 1.0 CE   Vol.,ABDOMEN
+255,NKI-d23231-00-0834_20220331_kalina99_5571.nii.gz,Yes,Portal,Just Right,Lever 1.0 CE   Vol.,ABDOMEN
+256,NKI-d23231-00-0839_20191017_kalina99_5595.nii.gz,Yes,Arterial,Too Early,Abdomen A  1.5  B25f,ABDOMEN
+259,NKI-d23231-00-0857_20211025_kalina99_5688.nii.gz,Partially,Arterial,Just Right,Bovenbuik-art  1.0  I40f  2,ABDOMEN
+260,NKI-d23231-00-0858_20220926_kalina01_0497.nii.gz,Yes,Arterial,Just Right,Body 1.0 CE   Vol.,ABDOMEN
