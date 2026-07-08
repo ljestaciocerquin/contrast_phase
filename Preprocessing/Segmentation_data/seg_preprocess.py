@@ -2,7 +2,7 @@ import os, torch
 import pandas as pd
 import numpy as np
 from monai.transforms import (
-    Compose, LoadImage, Resized, Spacingd, ScaleIntensityRanged, ResizeWithPadOrCropd
+    Compose, LoadImage, Spacingd, ScaleIntensityRanged, ResizeWithPadOrCropd
 )
 from monai.data import MetaTensor
 import torch.nn.functional as F
@@ -193,7 +193,7 @@ class ORMaskCropper:
 
         return a_image, p_image, a_liver, p_liver, a_lesion, p_lesion
 
-class PairedDiffusionPreprocess:
+class SegPreprocess:
     def __init__(self, dataset, organ_ids,
                  pixdim=(1, 1, 1), 
                 #  resize=(128, 128, 128)
@@ -215,12 +215,6 @@ class PairedDiffusionPreprocess:
             Spacingd(keys=self.image_keys, pixdim=self.pixdim, mode=3, allow_missing_keys=True),        # cubic spline
             Spacingd(keys=self.liver_keys, pixdim=self.pixdim, mode="nearest", allow_missing_keys=True, padding_mode = "zeros", align_corners=True),
             Spacingd(keys=self.lesion_keys, pixdim=self.pixdim, mode="nearest", allow_missing_keys=True, padding_mode = "zeros", align_corners=True),
-
-            # TODO: Fix the resizing to avoid distorting the images. Maybe add padding instead of resizing? Or at least use the same resize for images and masks.
-
-            # Resized(keys=self.image_keys, spatial_size=self.resize, mode="trilinear", allow_missing_keys=True),
-            # Resized(keys=self.liver_keys, spatial_size=self.resize, mode="nearest", allow_missing_keys=True),
-            # Resized(keys=self.lesion_keys, spatial_size=self.resize, mode="nearest", allow_missing_keys=True),
 
             # ResizeWithPadOrCropd(keys = self.image_keys, spatial_size = self.resize, allow_missing_keys = True),
             # ResizeWithPadOrCropd(keys = self.liver_keys, spatial_size = self.resize, allow_missing_keys = True),
@@ -258,16 +252,6 @@ class PairedDiffusionPreprocess:
         return a_mask, p_mask
 
 
-    # def get_spacing(self, x):
-
-    #     # if isinstance(x, MetaTensor) and hasattr(x, "pixdim"):
-    #     #     return torch.tensor(x.pixdim[1:4], dtype=torch.float32)
-
-    #     if isinstance(x, MetaTensor) and x.affine is not None:
-    #         # aff = x.affine[:3, :3].detach().cpu().numpy() 
-    #         return x.pixdim
-
-    #     return torch.tensor([1.0, 1.0, 1.0], dtype=torch.float32)
 
     def lesion_volume(self, lesion):
         """
@@ -528,13 +512,9 @@ def main():
     data_dir = "/projects/net_contrast_classification/contrast_phase/Preprocessing/Segmentation_data/full_pairs.csv"
     dataset = pd.read_csv(data_dir)
 
-    # dataset = dataset.sample(frac=0.1, random_state=42).reset_index(drop=True)
-    # dataset.to_csv("/projects/net_contrast_classification/contrast_phase/Preprocessing/Segmentation_data/sample_full_pairs1.csv", index=False)
-    # print(f"Dataset loaded with {len(dataset)} samples")
-
     organ_ids = [5]
 
-    preprocessor = PairedDiffusionPreprocess(
+    preprocessor = SegPreprocess(
         dataset,
         organ_ids,
         pixdim=(1, 1, 1),
@@ -543,7 +523,6 @@ def main():
 
     splits = ["train", "val", "test", "inference"]
     split_name = splits[task_id % 4]
-    # split_name = "inference"  # change if needed
 
     indices = dataset.index[dataset["split"] == split_name].to_numpy()
 
