@@ -76,6 +76,7 @@ class SimpleSegNet(nn.Module):
 
 class LateFusionSegmentation(nn.Module):
     def __init__(self):
+
         super().__init__()
 
         self.ap_model = SimpleSegNet(in_channels=1)
@@ -86,16 +87,26 @@ class LateFusionSegmentation(nn.Module):
         ap_mask = self.ap_model(ap_img) if ap_img is not None else None
         pvp_mask = self.pvp_model(pvp_img) if pvp_img is not None else None
 
+        # ----------------------------
+        # Single-modality inference
+        # ----------------------------
+
         if ap_mask is None:
             return torch.sigmoid(pvp_mask)
 
         if pvp_mask is None:
             return torch.sigmoid(ap_mask)
 
-        fused = torch.maximum(ap_mask, pvp_mask)
+        # ----------------------------
+        # Dual-modality case (training or full input)
+        # ----------------------------
+        # fused = torch.cat([ap_features, pvp_features], dim=1)
+        return {
+            "ap_mask": ap_mask,
+            "pvp_mask": pvp_mask,
+            "fused_mask": torch.maximum(ap_mask, pvp_mask)
 
-        # return torch.sigmoid(fused)
-        return fused
+        }
 
     
 
@@ -121,15 +132,6 @@ class AttentionFusionBlock(nn.Module):
 
     def forward(self, ap_feat, pvp_feat):
 
-        # # CASE 1: only AP
-        # if ap_exists and not pvp_exists:
-        #     return ap_feat
-
-        # # CASE 2: only PVP
-        # if pvp_exists and not ap_exists:
-        #     return pvp_feat
-
-        # # CASE 3: both exist → safe to fuse
         combined = torch.cat([ap_feat, pvp_feat], dim=1)
         att = self.att(combined)
         att = torch.softmax(att, dim=1)
@@ -300,46 +302,3 @@ class AttentionFusionSegmentation(nn.Module):
         x = self.dec1(x, f1)
 
         return self.out(x)
-    
-
-
-# =========================================================
-# 3. UNIMODAL MODEL WITH CROSS-PHASE SUPERVISION
-# =========================================================
-
-
-
-class BidirectionalCrossPhaseSegmentation(nn.Module):
-
-    def __init__(self):
-
-        super().__init__()
-
-        self.ap_model = SimpleSegNet(in_channels=1)
-        self.pvp_model = SimpleSegNet(in_channels=1)
-
-    def forward(self, ap_img, pvp_img):
-
-        ap_mask = self.ap_model(ap_img) if ap_img is not None else None
-        pvp_mask = self.pvp_model(pvp_img) if pvp_img is not None else None
-
-        # ----------------------------
-        # Single-modality inference
-        # ----------------------------
-
-        if ap_mask is None:
-            return torch.sigmoid(pvp_mask)
-
-        if pvp_mask is None:
-            return torch.sigmoid(ap_mask)
-
-        # ----------------------------
-        # Dual-modality case (training or full input)
-        # ----------------------------
-        # fused = torch.cat([ap_features, pvp_features], dim=1)
-        return {
-            "ap_mask": ap_mask,
-            "pvp_mask": pvp_mask,
-            "fused_mask": torch.maximum(ap_mask, pvp_mask)
-
-        }
