@@ -5,19 +5,53 @@ import os, torch
 from tqdm import tqdm
 from pathlib import PureWindowsPath
 from monai.data import Dataset, DataLoader
-from sklearn.preprocessing import LabelEncoder
 from monai.losses import DiceLoss
 from monai.metrics import DiceMetric
 from monai.metrics import MeanIoU
 from monai.losses import DiceFocalLoss
 import random
 
-
 import sys
 sys.path.append("/projects/net_contrast_classification/contrast_phase")
 from Segmentation.cross_segment_models import LateFusionSegmentation, AttentionFusionSegmentation
-from monai.transforms import Compose, RandCropByPosNegLabeld, EnsureTyped
+from monai.transforms import Compose, RandCropByPosNegLabeld, EnsureTyped, MapTransform, RandSpatialCropd
 from monai.inferers import sliding_window_inference
+from monai.data import list_data_collate
+import matplotlib.pyplot as plt
+
+
+class ConditionalCropd(MapTransform):
+
+    def __init__(self, keys, label_key, patch_size, num_patches=4):
+
+        super().__init__(keys)
+        self.label_key = label_key
+        self.patch_size = patch_size
+        self.num_patches = num_patches
+        self.pos_crop = RandCropByPosNegLabeld(
+            keys=keys,
+            label_key=label_key,
+            spatial_size=patch_size,
+            pos=1,
+            neg=0,
+            num_samples=num_patches
+        )
+
+        self.random_crop = RandSpatialCropd(
+            keys=keys,
+            roi_size=patch_size,
+            random_size=False
+        )
+
+    def __call__(self, data):
+
+        label = data[self.label_key]
+
+        if torch.any(label > 0):
+            return self.pos_crop(data)
+        else:
+            return [self.random_crop(data)]
+
 
 class SegDataset(Dataset):
     def __init__(self, df, split, sample=None, masking=None, transform = None):
@@ -33,6 +67,10 @@ class SegDataset(Dataset):
 
         self._check_paths()
         self._filter_shape_mismatches()
+        
+        if split == "train":
+            self.df = self.oversample_lesion_cases(self.df)
+            print(f"Oversampled training set: {len(self.df)} samples")
     
     def _check_paths(self):
         exists_mask = self.df["output_path"].apply(os.path.exists)
@@ -84,6 +122,28 @@ class SegDataset(Dataset):
             return image
         else:
             raise ValueError("Invalid masking option")
+
+    def oversample_lesion_cases(self, df):
+
+        lesion_df = df[
+            (df["arterial_lesionfree"] == "No") |
+            (df["portal_lesionfree"] == "No")
+        ]
+
+        negative_df = df[
+            (df["arterial_lesionfree"] == "Yes") &
+            (df["portal_lesionfree"] == "Yes")
+        ]
+
+        df_balanced = pd.concat([
+            negative_df,
+            lesion_df,
+            lesion_df,
+            lesion_df
+        ])
+
+        return df_balanced.sample(frac=1).reset_index(drop=True)
+
         
     def ground_truth(self, a_lesion, p_lesion): 
 
@@ -96,7 +156,7 @@ class SegDataset(Dataset):
         if p_lesion is None:
             return (a_lesion > 0).float()
 
-        return ((a_lesion > 0) | (p_lesion > 0)).float()
+        return torch.logical_or(a_lesion > 0, p_lesion > 0).float()
 
 
     def __len__(self):
@@ -163,6 +223,16 @@ def modality_dropout(ap, pvp, p=0.3):
 
     return ap, pvp
 
+def plot_curve(train_curve, val_curve, save_path, metric = "Loss"):
+    plt.clf()  
+    plt.plot(train_curve, label=f"Train {metric}")
+    plt.plot(val_curve, label=f"Validation {metric}")
+    plt.title(f"{metric} curve")
+    plt.xlabel("Epoch")
+    plt.ylabel(f"{metric}")
+    plt.legend()
+    plt.savefig(save_path)
+
 
 def train_seg(model,
               train_loader,
@@ -173,8 +243,9 @@ def train_seg(model,
               bce_weight=0.5,
               dice_weight=0.5,
               early_stopping=None,
-              device=None):
-    
+              device=None,
+              save_path=None):
+
     device = "cuda" if torch.cuda.is_available() else "cpu"
     model = model.to(device)
 
@@ -194,6 +265,11 @@ def train_seg(model,
 
     all_means = []
     all_stds = []
+
+    train_dice_curve = []
+    train_loss_curve = []
+    val_dice_curve = []
+    val_loss_curve = []
 
 
     for epoch in range(epochs):
@@ -244,9 +320,6 @@ def train_seg(model,
             probs = torch.sigmoid(outputs)                                 # logits -> probabilities
             preds = (probs > 0.3).float()                                # probabilities -> binary segmentation mask
 
-            # train_correct += (preds == lesion).sum().item()               # counts how many pixels are correctly predicted and accumulates this number for each batch
-            # train_total += lesion.numel()                                 # accumulates the total number of pixels in the ground truth masks for each batch
-
             with torch.no_grad():  
                 dice_metric_train(preds, lesion)                            # accumulates results internally  
                 iou_metric_train(preds, lesion)  
@@ -261,11 +334,13 @@ def train_seg(model,
         avg_train_dice_loss = train_dice_loss / len(train_loader)
         avg_train_bce = train_bce / len(train_loader)
 
-        # avg_train_acc = train_correct/ train_total                       # pixel-wise accuracy (not segmentation!)
         train_dice = dice_metric_train.aggregate().item()                # mean dice over all batches - segmentation quality
         dice_metric_train.reset()                                        # reset for the next epoch
         train_iou = iou_metric_train.aggregate().item()
         iou_metric_train.reset()
+
+        train_dice_curve.append(train_dice)
+        train_loss_curve.append(avg_train_loss)
 
 
         # ---------------- VALIDATION ----------------
@@ -303,17 +378,16 @@ def train_seg(model,
                     dice_metric(preds, lesion)                                  # accumulates results internally 
                     iou_metric(preds, lesion)
 
-                    # val_correct += (preds == lesion).sum().item()               # counts how many pixels are correctly predicted and accumulates this number for each batch
-                    # val_total += lesion.numel()                                 # accumulates the total number of pixels in the ground truth masks for each batch
-
 
 
             avg_val_loss = val_loss / len(val_loader)
-            # avg_val_acc = val_correct / val_total             # pixel-wise accuracy
             val_dice = dice_metric.aggregate().item()           # mean dice over all batches - segmentation quality
             dice_metric.reset()                                 # reset for the next epoch
             val_iou = iou_metric.aggregate().item()
             iou_metric.reset()
+
+            val_dice_curve.append(val_dice)
+            val_loss_curve.append(avg_val_loss)
 
             print(
             f"""
@@ -334,12 +408,18 @@ def train_seg(model,
             """
             )
 
+            if train_loss_curve is not None and val_loss_curve is not None:
+                plot_curve(train_loss_curve, val_loss_curve, title="Loss Curve", save_path=f"{save_path}/loss_{model.__class__.__name__}.png", metric="Loss")
+            if train_dice_curve is not None and val_dice_curve is not None:
+                plot_curve(train_dice_curve, val_dice_curve, title="Dice Curve", save_path=f"{save_path}/dice_{model.__class__.__name__}.png", metric="Dice")
+
             # Early stopping
             if avg_val_loss < best_val_loss:
                 best_val_loss = avg_val_loss
                 counter = 0
                 best_model_state = model.state_dict()
-                print("New best model")
+                torch.save(best_model_state, f"{save_path}/{model.__class__.__name__}.pth")
+                print("New best model saved")
             else:
                 counter += 1
                 if early_stopping:
@@ -380,7 +460,9 @@ def evaluate_model(model, test_loader, patch_size = (64, 64, 64)):
                 inputs=image,
                 roi_size=patch_size,
                 sw_batch_size=4,
-                predictor=predictor
+                predictor=predictor,
+                overlap=0.5,
+                mode="gaussian",
             )
 
             preds = (torch.sigmoid(out) > 0.5).float()
@@ -390,7 +472,7 @@ def evaluate_model(model, test_loader, patch_size = (64, 64, 64)):
     return preds
 
 def main():
-    data_dir = "/projects/net_contrast_classification/contrast_phase/Preprocessing/Diffusion_data/full_pairs.csv"
+    data_dir = "/projects/net_contrast_classification/contrast_phase/Preprocessing/Segmentation_data/full_pairs.csv"
     df = pd.read_csv(data_dir)
     df = df[df["split"] != "inference"]
     
@@ -400,14 +482,14 @@ def main():
     bce_weight = 0.2
     patch_size = (64, 64, 64)
 
-    transforms = Compose([
+    transform = Compose([
         RandCropByPosNegLabeld(
             keys=["image", "label"],
             label_key="label",
             spatial_size=patch_size,
-            pos=1,        # 1 positive patch
+            pos=3,        # 3 positive patches
             neg=1,        # 1 negative patch
-            num_samples=2,
+            num_samples=4,
             image_key="image"
         ),
 
@@ -415,9 +497,20 @@ def main():
 
     ])
 
-    train_dataset = SegDataset(df, split = "train", transform=transforms)
-    val_dataset = SegDataset(df, split = "val", transform=transforms)
-    test_dataset = SegDataset(df, split = "test")
+    # transform = Compose([
+    #     ConditionalCropd(
+    #         keys=["image", "label"],
+    #         label_key="label",
+    #         patch_size=patch_size,
+    #         num_patches=4
+    #     ),
+    #     EnsureTyped(keys=["image", "label"])
+
+    # ])
+
+    train_dataset = SegDataset(df, split = "train", transform=transform)
+    val_dataset = SegDataset(df, split = "val", transform=transform)
+    test_dataset = SegDataset(df, split = "test", transform=transform)
 
     train_loader = DataLoader(train_dataset, batch_size=2, shuffle=True)
     val_loader = DataLoader(val_dataset, batch_size=2, shuffle=False)
@@ -442,6 +535,7 @@ def main():
     print("=" * 80, flush=True)
     print("\n", flush=True) 
 
+    save_path = f"/projects/net_contrast_classification/contrast_phase/Segmentation"
 
     trained_model = train_seg(model, 
                               train_loader, 
@@ -449,10 +543,10 @@ def main():
                               epochs=epochs,
                               bce_weight=bce_weight,
                               dice_weight=dice_weight,
-                              early_stopping=None
+                              early_stopping=None,
+                              save_path = save_path
                               )
     
-    save_path = f"/projects/net_contrast_classification/contrast_phase/Segmentation/trained_{model_name}.pth"
 
     try:
         os.makedirs(os.path.dirname(save_path), exist_ok=True)
