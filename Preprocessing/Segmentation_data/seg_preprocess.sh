@@ -8,8 +8,8 @@
 #SBATCH --time=3-00:00:00
 #SBATCH --qos=rtx_qos
 #SBATCH --array=0-7
-#SBATCH --output=/projects/net_contrast_classification/jobs/preprocessing/segmentation_data/preprocess_%A_%a.out
-#SBATCH --error=/projects/net_contrast_classification/jobs/preprocessing/segmentation_data/preprocess_%A_%a.err
+#SBATCH --output=/projects/net_contrast_classification/jobs/preprocessing/seg_data/preprocess_%A_%a.out
+#SBATCH --error=/projects/net_contrast_classification/jobs/preprocessing/seg_data/preprocess_%A_%a.err
 
 
 source /home/k.minkova/miniconda3/etc/profile.d/conda.sh
