@@ -12,7 +12,7 @@ from monai.data import MetaTensor
 import sys
 sys.path.append("/projects/net_contrast_classification/contrast_phase")
 
-from Radiomics.radiomics_pipeline import multi_channel
+from contrast_phase.Radiomics.radiomics_extract import multi_channel
 import warnings
 warnings.filterwarnings("ignore", category=FutureWarning)
 
