@@ -1,56 +1,20 @@
 import pandas as pd
-import numpy as np
-from pathlib import Path
 import os, torch
 from tqdm import tqdm
-from pathlib import PureWindowsPath
 from monai.data import Dataset, DataLoader
 from monai.losses import DiceLoss
-from monai.metrics import DiceMetric
-from monai.metrics import MeanIoU
+from monai.metrics import DiceMetric, MeanIoU
 from monai.losses import DiceFocalLoss
 import random
 
 import sys
 sys.path.append("/projects/net_contrast_classification/contrast_phase")
 from Segmentation.cross_segment_models import LateFusionSegmentation, AttentionFusionSegmentation
-from monai.transforms import Compose, RandCropByPosNegLabeld, EnsureTyped, MapTransform, RandSpatialCropd
+from monai.transforms import Compose, RandCropByPosNegLabeld, EnsureTyped
 from monai.inferers import sliding_window_inference
 from monai.data import list_data_collate
 import matplotlib.pyplot as plt
 
-
-class ConditionalCropd(MapTransform):
-
-    def __init__(self, keys, label_key, patch_size, num_patches=4):
-
-        super().__init__(keys)
-        self.label_key = label_key
-        self.patch_size = patch_size
-        self.num_patches = num_patches
-        self.pos_crop = RandCropByPosNegLabeld(
-            keys=keys,
-            label_key=label_key,
-            spatial_size=patch_size,
-            pos=1,
-            neg=0,
-            num_samples=num_patches
-        )
-
-        self.random_crop = RandSpatialCropd(
-            keys=keys,
-            roi_size=patch_size,
-            random_size=False
-        )
-
-    def __call__(self, data):
-
-        label = data[self.label_key]
-
-        if torch.any(label > 0):
-            return self.pos_crop(data)
-        else:
-            return [self.random_crop(data)]
 
 
 class SegDataset(Dataset):
@@ -138,12 +102,10 @@ class SegDataset(Dataset):
         df_balanced = pd.concat([
             negative_df,
             lesion_df,
-            lesion_df,
             lesion_df
         ])
 
-        return df_balanced.sample(frac=1).reset_index(drop=True)
-
+        return df_balanced.sample(frac=1, random_state=42).reset_index(drop=True)
         
     def ground_truth(self, a_lesion, p_lesion): 
 
@@ -158,13 +120,20 @@ class SegDataset(Dataset):
 
         return torch.logical_or(a_lesion > 0, p_lesion > 0).float()
 
-
     def __len__(self):
         return len(self.df)
 
     def __getitem__(self, idx):
         row = self.df.iloc[idx]
-        data = torch.load(row["output_path"])
+
+        # Get the data from /processing
+        output_path = row["output_path"].replace(
+                            "/mnt/rhea/data_private/IRBd23-231/GEPNETs/contrast_phase/segmentation_data",
+                            "/processing/k.minkova/segmentation_data",
+                            1
+                            )
+        
+        data = torch.load(output_path)
 
 
 
@@ -191,7 +160,9 @@ class SegDataset(Dataset):
         image = torch.cat([a_image, p_image], dim=0)
         sample = {
             "image": image,
-            "label": gt_mask
+            "label": gt_mask,
+            "SubjectKeyRadiology": row["SubjectKeyRadiology"],
+            "ExamDate": row["ExamDate"]
 
         }
 
@@ -258,8 +229,14 @@ def train_seg(model,
     )
 
     optimizer = torch.optim.Adam(model.parameters(), lr=lr, weight_decay=weight_decay)
+    scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, 
+                                                           mode="max",        # maximize validation Dice
+                                                           factor=0.5,        # reduce LR by half
+                                                           patience=10,       # wait 10 epochs without improvement
+                                                           min_lr=1e-6
+                                                           )
 
-    best_val_loss = float("inf")
+    best_val_dice = -float("inf")
     counter = 0
     best_model_state = None
 
@@ -318,7 +295,7 @@ def train_seg(model,
             loop.set_postfix(loss=loss.item())
 
             probs = torch.sigmoid(outputs)                                 # logits -> probabilities
-            preds = (probs > 0.3).float()                                # probabilities -> binary segmentation mask
+            preds = (probs > 0.5).float()                                # probabilities -> binary segmentation mask
 
             with torch.no_grad():  
                 dice_metric_train(preds, lesion)                            # accumulates results internally  
@@ -348,22 +325,30 @@ def train_seg(model,
             model.eval()
             val_loss = 0.0
 
-
             dice_metric = DiceMetric(include_background=False, reduction="mean")
             iou_metric = MeanIoU(include_background=False)
+            tp, fp, fn = 0, 0, 0
 
             with torch.no_grad():
                 for batch in val_loader:
                     image = batch["image"].to(device)
                     lesion = batch["label"].to(device).float()
-                    a_img = image[:, 0:1]   # arterial
-                    p_img = image[:, 1:2]   # portal
-                    
-                    if isinstance(model, AttentionFusionSegmentation):
-                        a_img, p_img = modality_dropout(a_img, p_img)
 
+                    def predictor(x_in):
+                        a_img = x_in[:,0:1] # arterial
+                        p_img = x_in[:,1:2] # portal
+                        return model(a_img, p_img)
 
-                    outputs = model(a_img, p_img)
+                    # Whole volume prediction
+                    outputs = sliding_window_inference(
+                        inputs=image,
+                        roi_size=(64,64,64),
+                        sw_batch_size=4,
+                        predictor=predictor,
+                        overlap=0.5,
+                        mode="gaussian"
+                    )
+
                     dice = dice_loss(outputs, lesion)
                     dice_focal = dice_focalloss(outputs, lesion)
                     bce = bce_loss(outputs, lesion)
@@ -373,7 +358,14 @@ def train_seg(model,
 
                     # Dice score for validation
                     probs = torch.sigmoid(outputs)                               # logits -> probabilities
-                    preds = (probs > 0.3).float()                                # probabilities -> binary segmentation mask
+                    preds = (probs > 0.5).float()                                # probabilities -> binary segmentation mask
+                    
+                    pred_bool = preds.bool()
+                    gt_bool = lesion.bool()
+
+                    tp += (pred_bool & gt_bool).sum().item()
+                    fp += (pred_bool & ~gt_bool).sum().item()
+                    fn += (~pred_bool & gt_bool).sum().item()
 
                     dice_metric(preds, lesion)                                  # accumulates results internally 
                     iou_metric(preds, lesion)
@@ -386,14 +378,23 @@ def train_seg(model,
             val_iou = iou_metric.aggregate().item()
             iou_metric.reset()
 
+            scheduler.step(val_dice)                            # scheduler added to help escape local minima
+
             val_dice_curve.append(val_dice)
             val_loss_curve.append(avg_val_loss)
+
+
+            val_precision = tp / (tp + fp + 1e-8)
+            val_recall = tp / (tp + fn + 1e-8)
+
+            current_lr = optimizer.param_groups[0]["lr"]
 
             print(
             f"""
             Epoch {epoch+1}
             ---------------------------------------------
             Logits mean: {epoch_mean:.4f}, Logits std: {epoch_std:.4f}
+            Learning_rate : {current_lr:.2e}
 
             train_loss      : {avg_train_loss:.4f}
             train_bce       : {avg_train_bce:.4f}
@@ -404,18 +405,20 @@ def train_seg(model,
             val_loss        : {avg_val_loss:.4f}
             val_dice        : {val_dice:.4f}
             val_iou         : {val_iou:.4f}
+            val_precision   : {val_precision:.4f}
+            val_recall      : {val_recall:.4f}
             ---------------------------------------------
             """
             )
 
             if train_loss_curve is not None and val_loss_curve is not None:
-                plot_curve(train_loss_curve, val_loss_curve, title="Loss Curve", save_path=f"{save_path}/loss_{model.__class__.__name__}.png", metric="Loss")
+                plot_curve(train_loss_curve, val_loss_curve, save_path=f"{save_path}/loss_{model.__class__.__name__}.png", metric="Loss")
             if train_dice_curve is not None and val_dice_curve is not None:
-                plot_curve(train_dice_curve, val_dice_curve, title="Dice Curve", save_path=f"{save_path}/dice_{model.__class__.__name__}.png", metric="Dice")
+                plot_curve(train_dice_curve, val_dice_curve, save_path=f"{save_path}/dice_{model.__class__.__name__}.png", metric="Dice")
 
             # Early stopping
-            if avg_val_loss < best_val_loss:
-                best_val_loss = avg_val_loss
+            if val_dice > best_val_dice:
+                best_val_dice = val_dice
                 counter = 0
                 best_model_state = model.state_dict()
                 torch.save(best_model_state, f"{save_path}/{model.__class__.__name__}.pth")
@@ -437,18 +440,22 @@ def train_seg(model,
 
     return model
 
-def evaluate_model(model, test_loader, patch_size = (64, 64, 64)):
+def evaluate_model(model, test_loader, patch_size = (64, 64, 64), save_dir = None):
 
     device = "cuda" if torch.cuda.is_available() else "cpu"
     model.to(device)
     model.eval()
 
     dice_metric = DiceMetric(include_background=False, reduction="mean")
+    all_preds = []
 
     with torch.no_grad():
         for batch in test_loader:
             image = batch["image"].to(device)
             lesion = batch["label"].to(device)
+            subject = batch["SubjectKeyRadiology"][0]
+            exam_date = batch["ExamDate"][0]
+
             # sliding window expects full volume input
 
             def predictor(x_in):
@@ -468,53 +475,64 @@ def evaluate_model(model, test_loader, patch_size = (64, 64, 64)):
             preds = (torch.sigmoid(out) > 0.5).float()
             dice_metric(preds, lesion)
 
+            # -----------------------------
+            # Save prediction
+            # -----------------------------
+            if save_dir:
+                os.makedirs(save_dir, exist_ok=True)
+                filename = f"{subject}_{exam_date}_pred.pt"
+                save_path = os.path.join(save_dir, filename)
+                torch.save(preds.cpu(),save_path)
+
+            all_preds.append(preds.cpu())
+
     print(f"Test Dice: {dice_metric.aggregate().item():.4f}")
     return preds
+
+
 
 def main():
     data_dir = "/projects/net_contrast_classification/contrast_phase/Preprocessing/Segmentation_data/full_pairs.csv"
     df = pd.read_csv(data_dir)
     df = df[df["split"] != "inference"]
+
     
-    # batch_size = 32
     epochs = 100
     dice_weight = 0.8
     bce_weight = 0.2
     patch_size = (64, 64, 64)
 
-    transform = Compose([
+    save_path = f"/projects/net_contrast_classification/contrast_phase/Segmentation/job_{os.environ.get('SLURM_JOB_ID', 'local')}"
+    try:
+        os.makedirs(save_path, exist_ok=True)
+    except Exception as e:
+        print(f"Error creating the save path: {e}", flush=True)
+
+    train_transform = Compose([
         RandCropByPosNegLabeld(
             keys=["image", "label"],
             label_key="label",
             spatial_size=patch_size,
-            pos=3,        # 3 positive patches
-            neg=1,        # 1 negative patch
+            pos=2,        # 0.67 prob positive patches
+            neg=1,        # 0.33 prob negative patch
             num_samples=4,
             image_key="image"
         ),
 
         EnsureTyped(keys=["image", "label"])
-
     ])
 
-    # transform = Compose([
-    #     ConditionalCropd(
-    #         keys=["image", "label"],
-    #         label_key="label",
-    #         patch_size=patch_size,
-    #         num_patches=4
-    #     ),
-    #     EnsureTyped(keys=["image", "label"])
+    test_transform = Compose([
+        EnsureTyped(keys=["image", "label"])
+    ])
 
-    # ])
+    train_dataset = SegDataset(df, split = "train", transform=train_transform)
+    val_dataset = SegDataset(df, split = "val", transform=test_transform)
+    # test_dataset = SegDataset(df, split = "test", transform=test_transform)
 
-    train_dataset = SegDataset(df, split = "train", transform=transform)
-    val_dataset = SegDataset(df, split = "val", transform=transform)
-    test_dataset = SegDataset(df, split = "test", transform=transform)
-
-    train_loader = DataLoader(train_dataset, batch_size=2, shuffle=True)
-    val_loader = DataLoader(val_dataset, batch_size=2, shuffle=False)
-    test_loader = DataLoader(test_dataset, batch_size=1, shuffle=False)
+    train_loader = DataLoader(train_dataset, batch_size=2, shuffle=True, collate_fn=list_data_collate)
+    val_loader = DataLoader(val_dataset, batch_size=1, shuffle=False)
+    # test_loader = DataLoader(test_dataset, batch_size=1, shuffle=False)
 
     model_map = {0: "Late", 
                  1: "Attention",
@@ -531,11 +549,10 @@ def main():
     print(f"Dice weight: {dice_weight}, BCE weight: {bce_weight}, Epochs: {epochs}\n", flush=True)
     print(f"Number of training samples: {len(train_dataset)}", flush=True)
     print(f"Number of validation samples: {len(val_dataset)}", flush=True)
-    print(f"Number of test samples: {len(test_dataset)}", flush=True)
+    # print(f"Number of test samples: {len(test_dataset)}", flush=True)
     print("=" * 80, flush=True)
     print("\n", flush=True) 
 
-    save_path = f"/projects/net_contrast_classification/contrast_phase/Segmentation"
 
     trained_model = train_seg(model, 
                               train_loader, 
@@ -548,17 +565,18 @@ def main():
                               )
     
 
-    try:
-        os.makedirs(os.path.dirname(save_path), exist_ok=True)
+    torch.save(trained_model.state_dict(), f"{save_path}/{model.__class__.__name__}.pth")
+    print(f"Model saved successfully at: {save_path}", flush=True)
 
-        torch.save(trained_model.state_dict(), save_path)
-        print(f"Model saved successfully at: {save_path}", flush=True)
-
-    except Exception as e:
-        print(f"Error saving model: {e}", flush=True)
-
-
-    preds = evaluate_model(trained_model, test_loader, patch_size=patch_size)
+    test_dataset = SegDataset(df, split = "test", transform=test_transform)
+    test_loader = DataLoader(test_dataset, batch_size=1, shuffle=False)
+    print(f"\n\nNumber of test samples: {len(test_dataset)}", flush=True)
+    preds = evaluate_model(
+                    trained_model,
+                    test_loader,
+                    patch_size=patch_size,
+                    save_dir="/processing/k.minkova/segmentation_data/predictions"
+                    )
 
 if __name__ == "__main__":
     main()

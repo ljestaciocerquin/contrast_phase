@@ -1,6 +1,7 @@
 #!/bin/bash
 #SBATCH --job-name=cross_seg
 #SBATCH --partition=rtx2080ti
+#SBATCH --nodelist=alanturing
 #SBATCH --nodes=1
 #SBATCH --ntasks=1
 #SBATCH --cpus-per-task=8
