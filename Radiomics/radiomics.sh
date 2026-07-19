@@ -14,4 +14,4 @@
 source /home/k.minkova/miniconda3/etc/profile.d/conda.sh
 conda activate class
 
-python /projects/net_contrast_classification/contrast_phase/Radiomics/radiomics_pipeline.py $SLURM_ARRAY_TASK_ID
+python /projects/net_contrast_classification/contrast_phase/Radiomics/radiomics_extract.py $SLURM_ARRAY_TASK_ID

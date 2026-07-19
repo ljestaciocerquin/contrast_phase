@@ -72,8 +72,7 @@ def evaluate_model(model, X_test, y_test, encoder):
             pred_named,
             rownames=["True contrast"],
             colnames=["Predicted contrast"],
-            margins=True
-        ), flush=True)
+            margins=True))
 
     return y_pred, acc
 
@@ -141,7 +140,7 @@ def tsne_visual(X_pca,
             label="Misclassified"
         )
 
-        plt.title("t-SNE of Test Set with Misclassified Samples")
+        plt.title(title)
         plt.legend(title="Contrast Phase")
         plt.show()
 
@@ -182,13 +181,9 @@ def train_pipe(train_data, test_data, meta_cols, class_name = "contrast", model_
 
     models = train_tree_models(X_train, y_train)
 
-    predictions, accuracy = evaluate_model(models, X_test, y_test, encoder)
+    predictions, accuracy = evaluate_model(models[model_name], X_test, y_test, encoder)
 
-    if model_name is not None:
-        predictions = predictions[model_name]
-        accuracy = accuracy[model_name]
-
-    return models, predictions, accuracy
+    return models[model_name], predictions, accuracy
 
 def cross_val(data, meta_cols, class_name = "contrast", model_name="GBT", k=5, grouping="SubjectKeyRadiology", pca=False):
 
