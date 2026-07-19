@@ -769,15 +769,6 @@ def main():
 
     data_dir = "/projects/net_contrast_classification/contrast_phase/Preprocessing/Time_interval_data/paired_preprocessed_data.csv"
 
-    # df = pd.read_csv(data_dir)
-    # train_df = df[df["split"] == "train"]
-    # train_df = train_df[
-    #     (train_df["time_interval"] >= 0) &
-    #     (train_df["time_interval"] <= 90)
-    # ]
-    # mean = train_df["time_interval"].mean()
-    # std = train_df["time_interval"].std()
-
 
     batch_size = 1
     epochs = 100

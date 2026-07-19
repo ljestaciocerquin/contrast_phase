@@ -6,13 +6,14 @@ import numpy as np
 import torch.nn as nn
 from tqdm import tqdm
 from monai.data import Dataset, DataLoader
+from torch.nn import CrossEntropyLoss
 import glob
 import warnings
 warnings.filterwarnings("ignore", category=FutureWarning)
 import sys
 sys.path.append("/projects/net_contrast_classification/contrast_phase")
 from DeepLClassifiers.Contrast.contrast_models import evaluate_model, PTDataset
-from DeepLClassifiers.Phase_timing.phase_models import class_weights_calculation, train_cnn
+from DeepLClassifiers.Phase_timing.phase_models import class_weights_calculation, train_cnn, OrdinalFocalLoss
 
 
 class MerlinModel(nn.Module):
@@ -54,9 +55,10 @@ def main():
 
     data_dir = "/projects/net_contrast_classification/contrast_phase/Preprocessing/Contrast_data/preprocessed_data.csv"
 
-    batch_size = 3
+    batch_size = 2
     epochs = 50
     gamma = 4.0
+    lambda_ordinal = 0.3
 
     label_map = {0: "contrast",
                  1: "phase"}
@@ -87,15 +89,18 @@ def main():
 
     model = MerlinModel(num_classes=len(le.classes_), dropout_rate=0.3)
 
-
     print(f"\nTraining for task:{label_name} using Merlin embedding\n")
 
     save_path = f"/projects/net_contrast_classification/contrast_phase/DeepLClassifiers/Merlin/{label_name}"
     os.makedirs(save_path, exist_ok=True)
 
     class_weights = class_weights_calculation(data_dir) if label_name == "phase" else None
-
     print("Class weights:", class_weights, flush=True)
+
+    loss_fn = (
+        OrdinalFocalLoss(alpha=class_weights, gamma=gamma, lambda_ordinal=lambda_ordinal, reduction="mean") 
+        if label_name == "phase" else CrossEntropyLoss()
+    )
 
     trained_model = train_cnn(model,
                                     train_loader,
@@ -103,12 +108,15 @@ def main():
                                     val_loader=val_loader,
                                     epochs = epochs,
                                     early_stopping=10,
-                                    gamma = gamma,
+                                    loss_fn = loss_fn,
                                     save_path = save_path)
     
 
     # Saving the trained model
-    save_path_model = f"{save_path}/trained_models/{label_name}{[f'_g{int(gamma)}' if label_name == 'phase' else '']}_trained.pth"
+    save_path_model = (
+                    f"{save_path}/trained_models/"
+                    f"{label_name}{f'_g{int(gamma)}' if label_name == 'phase' else ''}_trained.pth"
+                )
 
     try:
         # ensure directory exists

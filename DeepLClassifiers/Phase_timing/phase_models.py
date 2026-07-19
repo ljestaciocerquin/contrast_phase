@@ -73,7 +73,6 @@ class OrdinalFocalLoss(nn.Module):
     def ordinal_loss(self, logits, targets):
 
         probs = F.softmax(logits, dim=1)
-
         num_classes = logits.shape[1]
 
         class_range = torch.arange(
@@ -84,7 +83,6 @@ class OrdinalFocalLoss(nn.Module):
 
         # expected ordinal prediction
         pred_value = (probs * class_range).sum(dim=1)
-
         targets = targets.float()
 
         return F.mse_loss(pred_value, targets)
@@ -92,9 +90,7 @@ class OrdinalFocalLoss(nn.Module):
     def forward(self, logits, targets):
 
         focal_loss = self.focal(logits, targets)
-
         ordinal_loss = self.ordinal_loss(logits, targets)       # higher penalty for predictions far from the groun truth
-
         total_loss = focal_loss + self.lambda_ordinal * ordinal_loss
 
         return total_loss, focal_loss, ordinal_loss
@@ -246,6 +242,7 @@ def train_cnn(model,
             results_dir = f"{save_path}/results"
             os.makedirs(results_dir, exist_ok=True)
             loss_str = ""
+            gamma_str= ""
 
             if isinstance(loss_fn, OrdinalFocalLoss):
                 loss_str = (
@@ -269,7 +266,7 @@ def train_cnn(model,
                 plt.title(f"Loss curve: {model.__class__.__name__}{loss_str}")
                 plt.legend()
 
-                plt.savefig(f"{results_dir}/{model.__class__.__name__}_{gamma_str}_loss_curve.png")
+                plt.savefig(f"{results_dir}/{model.__class__.__name__}{gamma_str}_loss_curve.png")
                 plt.close()
 
             # ---- Accuracy curve ----
@@ -308,14 +305,16 @@ def main():
     lambda_ordinal = 0.3
 
 
-    model_map = {0: "ResNet10 gamma = 2.0",
-                1: "CNN8 gamma = 2.0",
-                2: "ResNet10 gamma = 4.0",
-                3: "CNN8 gamma = 4.0"
-                }
+    model_map = {
+                0: ("ResNet10", 2.0),
+                1: ("CNN8", 2.0),
+                2: ("ResNet10", 4.0),
+                3: ("CNN8", 4.0),
+            }
+
     
     task_id = int(os.environ.get("SLURM_ARRAY_TASK_ID", 0))
-    model_name = model_map[task_id]
+    model_name, gamma = model_map[task_id]
 
 
     train_dataset = PTDataset(data_dir, split = "train", label_name="phase", encoder=None, add_augmented=True)
@@ -338,14 +337,11 @@ def main():
     # -------------------------------------------------------------------------------------------------------------
     
 
-    if model_name.split(' gamma = ')[0] == "ResNet10":
+    if model_name == "ResNet10":
         model = ResNet(num_classes = len(le.classes_), dropout_rate=dropout_rate)
-        gamma = float(model_name.split(' gamma = ')[1])
     
-    elif model_name.split(' gamma = ')[0] == "CNN8":
-        # Simple 3D CNN trained from scratch
+    elif model_name == "CNN8":
         model = CNN8(num_classes=len(le.classes_), dropout_rate=dropout_rate)
-        gamma = float(model_name.split(' gamma = ')[1])
 
 
     save_path = "/projects/net_contrast_classification/contrast_phase/DeepLClassifiers/Phase_timing"

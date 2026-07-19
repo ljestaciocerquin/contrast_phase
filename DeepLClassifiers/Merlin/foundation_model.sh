@@ -8,9 +8,9 @@
 #SBATCH --time=3-00:00:00
 #SBATCH --gres=gpu:1
 #SBATCH --qos=rtx_qos
-#SBATCH --array=1
-#SBATCH --output=/projects/net_contrast_classification/jobs/deep_class/merlin/training_%A_%a.out
-#SBATCH --error=/projects/net_contrast_classification/jobs/deep_class/merlin/training_%A_%a.err
+#SBATCH --array=0
+#SBATCH --output=/projects/net_contrast_classification/jobs/deep_class/merlin/merlin_%A_%a.out
+#SBATCH --error=/projects/net_contrast_classification/jobs/deep_class/merlin/merlin_%A_%a.err
 
 
 source /home/k.minkova/miniconda3/etc/profile.d/conda.sh
